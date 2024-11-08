@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [
@@ -11,9 +11,9 @@ import { ConfigModule } from '@nestjs/typeorm';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: false, 
+      synchronize: false,
       ssl: {
-        rejectUnauthorized: false 
+        rejectUnauthorized: false
       }
     }),
   ],
