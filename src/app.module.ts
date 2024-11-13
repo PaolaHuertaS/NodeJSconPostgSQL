@@ -4,19 +4,25 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { BookModule } from './book/book.module';
-import { fsync, readFileSync } from 'fs';
+import { join } from 'path';
+import { readFileSync } from 'fs';
+
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url: process.env.DATABASE_URL,
+      host: 'pg-261f372e-paonico11-a758.l.aivencloud.com',
+      port: 23584,
+      username: 'avnadmin',
+      password: 'AVNS_45IjXrwFDcUCLByHI_v',
+      database: 'defaultdb',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: false,
+      synchronize: true,
       ssl: {
-        rejectUnauthorized: true,
-        ca: readFileSync('./ca.pem').toString()
+        ca: readFileSync(join(process.cwd(), 'ca.pem')).toString(),
+        rejectUnauthorized: true
       }
     }),
     BookModule,
