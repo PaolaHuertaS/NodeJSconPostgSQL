@@ -7,6 +7,7 @@ import { BookModule } from './book/book.module';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 import { GraphqlModule } from './graphql/graphql.module';
+import { RssModule } from './rss/rss.module';
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { GraphqlModule } from './graphql/graphql.module';
       }
     }),
     BookModule,
-    GraphqlModule
+    GraphqlModule,
+    RssModule
   ],
   controllers: [AppController],
   providers: [AppService],
