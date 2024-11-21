@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
-import { Anitomy } from 'anitomyscript';
+import { parseAnimeTitle } from 'anitomyscript';
 
 @Injectable()
 export class RssService {
@@ -17,30 +17,39 @@ export class RssService {
       const xmlData = await response.text();
       const result = this.parser.parse(xmlData);
       
+      const items = Array.isArray(result.rss.channel.item) 
+        ? result.rss.channel.item 
+        : [result.rss.channel.item];
+
       const episodes = await Promise.all(
-        result.rss.channel.item
-          .slice(0, 5)
-          .map(async (item) => {
-            const parsed = await Anitomy.parse(item.title);
+        items.slice(0, 5).map(async (item) => {
+          try {
+            const parsedTitle = await parseAnimeTitle(item.title);
+            
             return {
               original: item.title,
-              parsed: {
-                anime_title: parsed.anime_title,
-                episode_number: parsed.episode_number,
-                video_resolution: parsed.video_resolution,
-                release_group: parsed.release_group,
-                subtitles: parsed.subtitles
-              },
+              parsed: parsedTitle,
               link: item.link,
               date: item.pubDate,
               size: item['erai:size']
             };
-          })
+          } catch (parseError) {
+            console.error('Error parsing title:', item.title, parseError);
+            return {
+              original: item.title,
+              link: item.link,
+              date: item.pubDate,
+              size: item['erai:size'],
+              parsed: null
+            };
+          }
+        })
       );
 
       return episodes;
     } catch (error) {
-      throw new Error(`Error: ${error.message}`);
+      console.error('RSS Feed Error:', error);
+      throw new Error(`Failed to fetch episodes: ${error.message}`);
     }
   }
 }
