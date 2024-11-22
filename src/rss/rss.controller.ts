@@ -5,7 +5,7 @@ import { RssService } from './rss.service';
 export class RssController {
   constructor(private readonly rssService: RssService) {}
 
-  @Get('latest')
+  @Get()
   getLastEpisodes() {
     return this.rssService.getLastEpisodes();
   }
