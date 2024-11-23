@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
-const anitomy = require('anitomyscript');
+import { Episode, ParsedAnimeInfo } from './rss.type';
+const anitomyscript = require('anitomyscript');
 
 @Injectable()
 export class RssService {
@@ -11,61 +12,90 @@ export class RssService {
 
   private readonly RSS_URL = 'https://www.erai-raws.info/episodes/feed/?res=1080p&type=torrent&subs%5B0%5D=mx&token=c7aa3ae68b4ef37a904773bb46371e42';
 
-  private parseAnimeInfo(title: string) {
-   
-    const animeMatch = /\[Torrent\] (.*?) - (\d+)/;
-    const resolutionMatch = /\[(\d+p)\]/;
-    const subtitlesMatch = /\[(.*?)\]/g;
-    
-    const animeParts = title.match(animeMatch);
-    const resolution = title.match(resolutionMatch);
-    const subtitles = [...title.matchAll(subtitlesMatch)]
-      .map(match => match[1])
-      .filter(sub => sub !== 'Torrent' && !sub.includes('p') && sub !== 'Airing');
+  private async parseAnimeTitle(title: string): Promise<ParsedAnimeInfo> {
+    try {
+      if (!title) {
+        throw new Error('Title is required');
+      }
 
-    return {
-      anime_title: animeParts ? animeParts[1] : 'Unknown',
-      episode_number: animeParts ? animeParts[2] : 'Unknown',
-      resolution: resolution ? resolution[1] : 'Unknown',
-      subtitles: subtitles,
-      is_airing: title.includes('[Airing]')
-    };
+      const result = await anitomyscript(title);
+      return {
+        anime_title: result.anime_title || '',
+        episode_number: result.episode_number ? parseInt(result.episode_number) : null,
+        video_resolution: result.video_resolution || '',
+        release_group: result.release_group || '',
+        file_checksum: result.file_checksum || '',
+        subtitles: result.subtitles || [],
+        audio_term: result.audio_term || ''
+      };
+    } catch (error) {
+      console.error('Error parsing anime title:', title, error);
+      return {
+        anime_title: title,
+        episode_number: null,
+        video_resolution: '',
+        release_group: '',
+        file_checksum: '',
+        subtitles: [],
+        audio_term: ''
+      };
+    }
   }
 
-  async getLastEpisodes() {
+  async getLastEpisodes(): Promise<Episode[]> {
     try {
       const response = await fetch(this.RSS_URL);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const xmlData = await response.text();
       const result = this.parser.parse(xmlData);
-      
-      const items = Array.isArray(result.rss.channel.item) 
-        ? result.rss.channel.item 
+
+      if (!result.rss?.channel?.item) {
+        throw new Error('Invalid RSS feed structure');
+      }
+
+      const items = Array.isArray(result.rss.channel.item)
+        ? result.rss.channel.item
         : [result.rss.channel.item];
 
-      const episodes = items.slice(0, 5).map(item => {
-        const parsedInfo = this.parseAnimeInfo(item.title);
-        
-        return {
-          original_title: item.title,
-          parsed: parsedInfo,
-          link: item.link,
-          date: new Date(item.pubDate).toLocaleString(),
-          size: item['erai:size']
-        };
-      });
+      const episodes = await Promise.all(
+        items.slice(0, 5).map(async (item): Promise<Episode> => {
+          const parsedInfo = await this.parseAnimeTitle(item.title);
+          
+          return {
+            original_title: item.title,
+            info: parsedInfo,
+            download: {
+              link: item.link,
+              size: item['erai:size'] || 'Unknown'
+            },
+            published: new Date(item.pubDate).toISOString()
+          };
+        })
+      );
 
-      return {
-        success: true,
-        count: episodes.length,
-        episodes: episodes
-      };
-
+      return episodes;
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-        episodes: []
-      };
+      console.error('Error fetching RSS feed:', error);
+      return [];
+    }
+  }
+
+  async searchByAnimeTitle(title: string): Promise<Episode[]> {
+    try {
+      if (!title) {
+        return [];
+      }
+
+      const allEpisodes = await this.getLastEpisodes();
+      return allEpisodes.filter(episode => 
+        episode.info.anime_title?.toLowerCase().includes(title.toLowerCase())
+      );
+    } catch (error) {
+      console.error('Error searching episodes:', error);
+      return [];
     }
   }
 }
