@@ -20,26 +20,41 @@ export class RssService {
 
       const result = await anitomyscript(title);
       return {
-        anime_title: result.anime_title || '',
-        episode_number: result.episode_number ? parseInt(result.episode_number) : null,
-        video_resolution: result.video_resolution || '',
-        release_group: result.release_group || '',
-        file_checksum: result.file_checksum || '',
-        subtitles: result.subtitles || [],
-        audio_term: result.audio_term || ''
+        anime_title: this.getValueOrNull(result.anime_title),
+        episode_number: this.parseEpisodeNumber(result.episode_number),
+        video_resolution: this.getValueOrNull(result.video_resolution),
+        release_group: this.getValueOrNull(result.release_group),
+        file_checksum: this.getValueOrNull(result.file_checksum),
+        subtitles: Array.isArray(result.subtitles) ? result.subtitles : [],
+        audio_term: this.getValueOrNull(result.audio_term)
       };
     } catch (error) {
-      console.error('Error parsing anime title:', title, error);
-      return {
-        anime_title: title,
-        episode_number: null,
-        video_resolution: '',
-        release_group: '',
-        file_checksum: '',
-        subtitles: [],
-        audio_term: ''
-      };
+      console.error('Error', title, error);
+      return this.createEmptyParsedInfo();
     }
+  }
+
+  
+  private getValueOrNull<T>(value: T): T | null {
+    return value || null;
+  }
+
+  private parseEpisodeNumber(value: string | number): number | null {
+    if (!value) return null;
+    const parsed = parseInt(value.toString());
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  private createEmptyParsedInfo(): ParsedAnimeInfo {
+    return {
+      anime_title: null,
+      episode_number: null,
+      video_resolution: null,
+      release_group: null,
+      file_checksum: null,
+      subtitles: [],
+      audio_term: null
+    };
   }
 
   async getLastEpisodes(): Promise<Episode[]> {
@@ -53,7 +68,7 @@ export class RssService {
       const result = this.parser.parse(xmlData);
 
       if (!result.rss?.channel?.item) {
-        throw new Error('Invalid RSS feed structure');
+        throw new Error('Invalid RSS structure');
       }
 
       const items = Array.isArray(result.rss.channel.item)
@@ -68,8 +83,8 @@ export class RssService {
             original_title: item.title,
             info: parsedInfo,
             download: {
-              link: item.link,
-              size: item['erai:size'] || 'Unknown'
+              link: this.getValueOrNull(item.link),
+              size: this.getValueOrNull(item['erai:size'])
             },
             published: new Date(item.pubDate).toISOString()
           };
@@ -82,7 +97,7 @@ export class RssService {
       return [];
     }
   }
-
+  
   async searchByAnimeTitle(title: string): Promise<Episode[]> {
     try {
       if (!title) {
