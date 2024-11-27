@@ -1,20 +1,24 @@
 export interface ParsedAnimeInfo {
-    anime_title?: string;
-    episode_number?: number;
-    video_resolution?: string;
-    release_group?: string;
-    file_checksum?: string;
-    subtitles?: string[];
-    audio_term?: string;
-}
-  
-export interface Episode {
-    original_title: string;
-    info: ParsedAnimeInfo;
-    download: {
-      link: string;
-      size: string;
-    };
-    published: string;
+  title: string;
+  link: string;
+  pubDate: string;
+  resolution: string;
+  linkType: string;
+  size: string;
+  infoHash: string;
+  subtitles: string;
+  category: string;
+  episode: number;
+  isHevc: boolean;
+  hasNetflixSubs: boolean;
 }
 
+export interface Episode {
+  original_title: string;
+  info: ParsedAnimeInfo;
+  download: {
+    link: string | null;
+    size: string | null;
+  };
+  published: string;
+}

@@ -12,49 +12,50 @@ export class RssService {
 
   private readonly RSS_URL = 'https://www.erai-raws.info/episodes/feed/?res=1080p&type=torrent&subs%5B0%5D=mx&token=c7aa3ae68b4ef37a904773bb46371e42';
 
-  private async parseAnimeTitle(title: string): Promise<ParsedAnimeInfo> {
+  private async parseAnimeTitle(title: string, item: any): Promise<ParsedAnimeInfo> {
     try {
       if (!title) {
         throw new Error('Title is required');
       }
 
-      const result = await anitomyscript(title);
+      const { 
+        anime_title, 
+        episode_number, 
+        video_resolution, 
+        subtitles 
+      } = await anitomyscript(title);
+      
       return {
-        anime_title: this.getValueOrNull(result.anime_title),
-        episode_number: this.parseEpisodeNumber(result.episode_number),
-        video_resolution: this.getValueOrNull(result.video_resolution),
-        release_group: this.getValueOrNull(result.release_group),
-        file_checksum: this.getValueOrNull(result.file_checksum),
-        subtitles: Array.isArray(result.subtitles) ? result.subtitles : [],
-        audio_term: this.getValueOrNull(result.audio_term)
+        title: anime_title,
+        link: item.link,
+        pubDate: item.pubDate,
+        resolution: video_resolution || '1080p',
+        linkType: 'Torrent',
+        size: item['erai:size'] || 'Unknown',
+        infoHash: item.infoHash || '',
+        subtitles: subtitles ? `[${subtitles.join('][')}]` : '',
+        category: '[Airing]',
+        episode: parseInt(episode_number) || 0,
+        isHevc: false,
+        hasNetflixSubs: false
       };
     } catch (error) {
-      console.error('Error', title, error);
-      return this.createEmptyParsedInfo();
+      console.error('Error parsing anime title:', title, error);
+      return {
+        title: '',
+        link: '',
+        pubDate: '',
+        resolution: '',
+        linkType: '',
+        size: '',
+        infoHash: '',
+        subtitles: '',
+        category: '',
+        episode: 0,
+        isHevc: false,
+        hasNetflixSubs: false
+      };
     }
-  }
-
-  
-  private getValueOrNull<T>(value: T): T | null {
-    return value || null;
-  }
-
-  private parseEpisodeNumber(value: string | number): number | null {
-    if (!value) return null;
-    const parsed = parseInt(value.toString());
-    return isNaN(parsed) ? null : parsed;
-  }
-
-  private createEmptyParsedInfo(): ParsedAnimeInfo {
-    return {
-      anime_title: null,
-      episode_number: null,
-      video_resolution: null,
-      release_group: null,
-      file_checksum: null,
-      subtitles: [],
-      audio_term: null
-    };
   }
 
   async getLastEpisodes(): Promise<Episode[]> {
@@ -77,14 +78,14 @@ export class RssService {
 
       const episodes = await Promise.all(
         items.slice(0, 5).map(async (item): Promise<Episode> => {
-          const parsedInfo = await this.parseAnimeTitle(item.title);
+          const parsedInfo = await this.parseAnimeTitle(item.title, item);
           
           return {
             original_title: item.title,
             info: parsedInfo,
             download: {
-              link: this.getValueOrNull(item.link),
-              size: this.getValueOrNull(item['erai:size'])
+              link: item.link || null,
+              size: item['erai:size'] || null
             },
             published: new Date(item.pubDate).toISOString()
           };
@@ -97,7 +98,7 @@ export class RssService {
       return [];
     }
   }
-  
+
   async searchByAnimeTitle(title: string): Promise<Episode[]> {
     try {
       if (!title) {
@@ -106,7 +107,7 @@ export class RssService {
 
       const allEpisodes = await this.getLastEpisodes();
       return allEpisodes.filter(episode => 
-        episode.info.anime_title?.toLowerCase().includes(title.toLowerCase())
+        episode.info.title.toLowerCase().includes(title.toLowerCase())
       );
     } catch (error) {
       console.error('Error searching episodes:', error);
