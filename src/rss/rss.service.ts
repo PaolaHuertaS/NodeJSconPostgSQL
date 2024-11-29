@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
-import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime } from './rss.type';
+import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime, RssAnimeInfo } from './rss.type';
 const anitomyscript = require('anitomyscript');
 
 @Injectable()
@@ -173,5 +173,39 @@ export class RssService {
       return [];
     }
   }
+
+    async getRssAnimeInfo(): Promise<RssAnimeInfo[]> {
+      try {
+        const response = await fetch(this.RSS_URL);
+        if (!response.ok) throw new Error(`HTTP error! : ${response.status}`);
+    
+        const xmlData = await response.text();
+        const result = this.parser.parse(xmlData);
+        const items = Array.isArray(result.rss.channel.item) 
+          ? result.rss.channel.item 
+          : [result.rss.channel.item];
+    
+        return await Promise.all(
+          items.slice(0, 5).map(async (item) => {
+            // Obtener datos del episodio usando anitomyscript
+            const { anime_title, episode_number } = await anitomyscript(item.title);
+            // Buscar información del anime en Anilist
+            const animeInfo = await this.searchAnilist(anime_title);
+    
+            return {
+              anime: animeInfo,
+              episode: parseInt(episode_number) || 0,
+              torrent: {
+                link: item.link,
+                size: item['erai:size']
+              }
+            };
+          })
+        );
+      } catch (error) {
+        console.error('Error:', error);
+        return [];
+      }
+    }
 }
-  
+

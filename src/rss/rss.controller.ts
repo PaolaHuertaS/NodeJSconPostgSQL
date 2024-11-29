@@ -1,10 +1,10 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { RssService } from './rss.service';
-import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo } from './rss.type';
+import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, RssAnimeInfo } from './rss.type';
 
 @Controller('rss')
 export class RssController {
-  constructor(private readonly rssService: RssService) {}
+  constructor(private readonly rssService: RssService) { }
 
   @Get()
   async getLastEpisodes(): Promise<Episode[]> {
@@ -20,5 +20,10 @@ export class RssController {
   @Get('enhanced')
   async getEnhancedEpisodes(): Promise<EnhancedAnimeInfo[]> {
     return this.rssService.getEnhancedEpisodes();
+  }
+
+  @Get('anime')
+  getRssAnimeInfo() {
+    return this.rssService.getRssAnimeInfo();
   }
 }

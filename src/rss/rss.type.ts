@@ -23,6 +23,15 @@ export interface Episode {
   published: string;
 }
 
+export interface EnhancedAnimeInfo {
+  anime: AnilistAnime;
+  episode: number;
+  torrent: {
+    link: string;
+    size: string;
+  };
+}
+
 export interface AnilistAnime {
   id: number;
   title: {
@@ -31,7 +40,7 @@ export interface AnilistAnime {
   };
 }
 
-export interface EnhancedAnimeInfo {
+export interface RssAnimeInfo {
   anime: AnilistAnime;
   episode: number;
   torrent: {
