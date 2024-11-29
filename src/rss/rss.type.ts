@@ -22,3 +22,20 @@ export interface Episode {
   };
   published: string;
 }
+
+export interface AnilistAnime {
+  id: number;
+  title: {
+    romaji: string;
+    english: string;
+  };
+}
+
+export interface EnhancedAnimeInfo {
+  anime: AnilistAnime;
+  episode: number;
+  torrent: {
+    link: string;
+    size: string;
+  };
+}

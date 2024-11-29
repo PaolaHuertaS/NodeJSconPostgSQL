@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
-import { Episode, ParsedAnimeInfo } from './rss.type';
+import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime } from './rss.type';
 const anitomyscript = require('anitomyscript');
 
 @Injectable()
@@ -40,7 +40,7 @@ export class RssService {
         hasNetflixSubs: false
       };
     } catch (error) {
-      console.error('Error parsing anime title:', title, error);
+      console.error('Error anime title:', title, error);
       return {
         title: '',
         link: '',
@@ -58,6 +58,40 @@ export class RssService {
     }
   }
 
+  private async searchAnilist(title: string): Promise<AnilistAnime> {
+    const query = `
+      query ($search: String) {
+        Media (search: $search, type: ANIME) {
+          id
+          title {
+            romaji
+            english
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { search: title }
+        })
+      });
+
+      const data = await response.json();
+      return data.data.Media;
+    } catch (error) {
+      console.error('Error Anilist:', error);
+      return null;
+    }
+  }
+
   async getLastEpisodes(): Promise<Episode[]> {
     try {
       const response = await fetch(this.RSS_URL);
@@ -69,7 +103,7 @@ export class RssService {
       const result = this.parser.parse(xmlData);
 
       if (!result.rss?.channel?.item) {
-        throw new Error('Invalid RSS structure');
+        throw new Error('Invalid RSS ');
       }
 
       const items = Array.isArray(result.rss.channel.item)
@@ -94,7 +128,32 @@ export class RssService {
 
       return episodes;
     } catch (error) {
-      console.error('Error fetching RSS feed:', error);
+      console.error('Error fetching RSS:', error);
+      return [];
+    }
+  }
+
+  async getEnhancedEpisodes(): Promise<(Episode & EnhancedAnimeInfo)[]> {
+    try {
+      const episodes = await this.getLastEpisodes();
+      
+      return Promise.all(
+        episodes.map(async (episode): Promise<Episode & EnhancedAnimeInfo> => {
+          const animeInfo = await this.searchAnilist(episode.info.title);
+          
+          return {
+            ...episode,
+            anime: animeInfo,
+            episode: episode.info.episode,
+            torrent: {
+              link: episode.download.link,
+              size: episode.download.size
+            }
+          };
+        })
+      );
+    } catch (error) {
+      console.error('Error:', error);
       return [];
     }
   }
@@ -110,8 +169,9 @@ export class RssService {
         episode.info.title.toLowerCase().includes(title.toLowerCase())
       );
     } catch (error) {
-      console.error('Error searching episodes:', error);
+      console.error('Error episodes:', error);
       return [];
     }
   }
 }
+  
