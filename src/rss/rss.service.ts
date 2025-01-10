@@ -25,6 +25,9 @@ export class RssService {
           genres
           description
           status
+          episodes
+          duration
+          averageScore
         }
       }
     `;

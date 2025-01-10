@@ -36,17 +36,19 @@ export interface EnhancedAnimeInfo {
   duration?: string;       
   rating?: number;         
 }
-
 export interface AnilistAnime {
   id: number;
   title: {
     romaji: string;
     english: string;
-    japanese?: string;    
+    native: string;  
   };
-  genres?: string[];      
-  description?: string;   
-  status?: string;       
+  genres: string[];
+  description: string;
+  status: string;
+  episodes: number;
+  duration: number;
+  averageScore: number;
 }
 
 export interface RssAnimeInfo {
