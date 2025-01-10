@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { RssService } from './rss.service';
 import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, RssAnimeInfo } from './rss.type';
 
@@ -26,4 +26,10 @@ export class RssController {
   getRssAnimeInfo() {
     return this.rssService.getRssAnimeInfo();
   }
+
+  @Get('details/:title')
+  async getAnimeDetails(@Param('title') title: string) {
+    return this.rssService.getAnimeDetailsFromAnilist(title);
+  }
+
 }

@@ -9,8 +9,46 @@ export class RssService {
     ignoreAttributes: false,
     attributeNamePrefix: ''
   });
-
+  
   private readonly RSS_URL = 'https://www.erai-raws.info/episodes/feed/?res=1080p&type=torrent&subs%5B0%5D=mx&token=c7aa3ae68b4ef37a904773bb46371e42';
+
+  public async getAnimeDetailsFromAnilist(title: string): Promise<AnilistAnime> {
+    const query = `
+      query ($search: String) {
+        Media (search: $search, type: ANIME) {
+          id
+          title {
+            romaji
+            english
+            native
+          }
+          genres
+          description
+          status
+        }
+      }
+    `;
+
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { search: title }
+        })
+      });
+
+      const data = await response.json();
+      return data.data.Media;
+    } catch (error) {
+      console.error('Error Anilist:', error);
+      return null;
+    }
+  }
 
   private async parseAnimeTitle(title: string, item: any): Promise<ParsedAnimeInfo> {
     try {

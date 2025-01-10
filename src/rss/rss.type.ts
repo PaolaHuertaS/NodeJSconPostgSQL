@@ -30,6 +30,11 @@ export interface EnhancedAnimeInfo {
     link: string;
     size: string;
   };
+  genres?: string[];        
+  synopsis?: string;       
+  status?: string;         
+  duration?: string;       
+  rating?: number;         
 }
 
 export interface AnilistAnime {
@@ -37,7 +42,11 @@ export interface AnilistAnime {
   title: {
     romaji: string;
     english: string;
+    japanese?: string;    
   };
+  genres?: string[];      
+  description?: string;   
+  status?: string;       
 }
 
 export interface RssAnimeInfo {
