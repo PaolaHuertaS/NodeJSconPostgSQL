@@ -32,4 +32,25 @@ export class RssController {
     return this.rssService.getAnimeDetailsFromAnilist(title);
   }
 
+    //nuevo 
+
+  @Get('similar/:id')
+  async getSimilarAnimes(@Param('id') id: number) {
+  return this.rssService.getSimilarAnimes(id);
+  }
+
+  @Get('anime/:id/stats')
+  async getAnimeStats(@Param('id') id: number) {
+  return this.rssService.getAnimeStats(id);
+  }
+
+  @Get('season/:season/:year') 
+  async getSeasonAnimes(@Param('season') season: string, @Param('year') year: number) {
+  return this.rssService.getSeasonAnimes(season, year);
+  }
+
+  @Get('calendar/upcoming')
+  async getUpcomingPremieres() {
+  return this.rssService.getUpcomingPremieres();
+  }
 }
