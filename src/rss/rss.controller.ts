@@ -53,4 +53,12 @@ export class RssController {
   async getUpcomingPremieres() {
   return this.rssService.getUpcomingPremieres();
   }
+
+  @Get('top/:genre')
+  async getTopAnimesByGenre(@Param('genre') genre: string, @Query('limit') limit: number = 10) {
+  return this.rssService.getTopAnimesByGenre(genre, limit);
+}
+  // ejemplo: http://localhost:3001/rss/top/Drama?limit=5
+
+  
 }

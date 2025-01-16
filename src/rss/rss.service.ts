@@ -357,6 +357,64 @@ public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime
   }
 }
 
+  public async getTopAnimesByGenre(genre: string, limit: number = 10): Promise<AnilistAnime[]> {
+  // Query GraphQL para obtener animes por género
+  const query = `
+    query ($genre: String, $limit: Int) {
+      Page(page: 1, perPage: $limit) {
+        media(
+          genre: $genre,
+          type: ANIME,
+          sort: POPULARITY_DESC
+        ) {
+          id
+          title {
+            romaji
+            english
+            native
+          }
+          genres
+          description
+          averageScore
+          popularity
+          format
+          episodes
+          status
+        }
+      }
+    }
+  `;
+
+   try {
+    // Realizar petición 
+    const response = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables: { 
+          genre: genre,
+          limit: limit
+        }
+      })
+    });
+
+    const data = await response.json();
+    
+    // Organizar resultados por popularidad
+    return data.data.Page.media.map(anime => ({
+      ...anime,
+      popularityRank: anime.popularity
+    })).sort((a, b) => b.popularityRank - a.popularityRank);
+  } catch (error) {
+    console.error(`Error buscando animes de género ${genre}:`, error);
+    return [];
+  }
+  }
+
   private async searchAnilist(title: string): Promise<AnilistAnime> {
     const query = `
       query ($search: String) {
