@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Param, Query } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
-import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime, RssAnimeInfo } from './rss.type';
+import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime, RssAnimeInfo, AnimeEpisodeDetails } from './rss.type';
 const anitomyscript = require('anitomyscript');
 
 @Injectable()
@@ -9,7 +9,7 @@ export class RssService {
     ignoreAttributes: false,
     attributeNamePrefix: ''
   });
-  
+
   private readonly RSS_URL = 'https://www.erai-raws.info/episodes/feed/?res=1080p&type=torrent&subs%5B0%5D=mx&token=c7aa3ae68b4ef37a904773bb46371e42';
 
   public async getAnimeDetailsFromAnilist(title: string): Promise<AnilistAnime> {
@@ -96,7 +96,7 @@ export class RssService {
 
       // Convertir la respuesta a JSON
       const data = await response.json();
-      
+
       // Verificar que existan recomendaciones
       // Si no hay datos o no hay recomendaciones, devolver array vacío
       if (!data?.data?.Media?.recommendations?.nodes) {
@@ -105,7 +105,7 @@ export class RssService {
 
       // Extraer las recomendaciones
       const recommendations = data.data.Media.recommendations.nodes;
-      
+
       // Esto elimina la estructura anidada y devuelve un array simple
       return recommendations.map(node => node.mediaRecommendation);
     } catch (error) {
@@ -113,7 +113,7 @@ export class RssService {
       console.error('Error obteniendo recomendaciones:', error);
       return [];
     }
-}
+  }
 
   private async parseAnimeTitle(title: string, item: any): Promise<ParsedAnimeInfo> {
     try {
@@ -121,13 +121,13 @@ export class RssService {
         throw new Error('Title is required');
       }
 
-      const { 
-        anime_title, 
-        episode_number, 
-        video_resolution, 
-        subtitles 
+      const {
+        anime_title,
+        episode_number,
+        video_resolution,
+        subtitles
       } = await anitomyscript(title);
-      
+
       return {
         title: anime_title,
         link: item.link,
@@ -212,8 +212,8 @@ export class RssService {
       // Organizar por mes
       const premieresByMonth = data.data.Page.media.reduce((acc, anime) => {
         const monthName = new Date(
-          anime.startDate.year, 
-          anime.startDate.month - 1, 
+          anime.startDate.year,
+          anime.startDate.month - 1,
           anime.startDate.day
         ).toLocaleString('es-ES', { month: 'long' });
 
@@ -253,8 +253,8 @@ export class RssService {
   }
 
   public async getAnimeStats(animeId: number): Promise<any> {
-  // Query para obtener estadísticas detalladas
-  const query = `
+    // Query para obtener estadísticas detalladas
+    const query = `
     query ($id: Int) {
       Media (id: $id, type: ANIME) {
         rankings {                       
@@ -279,35 +279,35 @@ export class RssService {
     }
   `;
 
-  try {
-    const response = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query,
-        variables: { id: animeId }
-      })
-    });
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          variables: { id: animeId }
+        })
+      });
 
-    const data = await response.json();
-    // Organizar todas las estadísticas en un objeto
-    return {
-      rankings: data.data.Media.rankings || [],
-      stats: data.data.Media.stats || {},
-      popularity: data.data.Media.popularity,
-      favourites: data.data.Media.favourites,
-      trending: data.data.Media.trending
-    };
-  } catch (error) {
-    console.error('Error obteniendo estadísticas:', error);
-    return null;
+      const data = await response.json();
+      // Organizar todas las estadísticas en un objeto
+      return {
+        rankings: data.data.Media.rankings || [],
+        stats: data.data.Media.stats || {},
+        popularity: data.data.Media.popularity,
+        favourites: data.data.Media.favourites,
+        trending: data.data.Media.trending
+      };
+    } catch (error) {
+      console.error('Error obteniendo estadísticas:', error);
+      return null;
+    }
   }
-}
 
-public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime[]> {
-  // Query para obtener animes de una temporada específica
-  // Las temporadas son: WINTER, SPRING, SUMMER, FALL
-  const query = `
+  public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime[]> {
+    // Query para obtener animes de una temporada específica
+    // Las temporadas son: WINTER, SPRING, SUMMER, FALL
+    const query = `
     query ($season: MediaSeason, $year: Int) {
       Page(page: 1, perPage: 10) {           # Limitar a 10 resultados
         media(
@@ -334,32 +334,32 @@ public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime
     }
   `;
 
-  try {
-    // Hacer la petición a Anilist
-    const response = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query,
-        variables: { 
-          season: season.toUpperCase(),      // Convertir a mayúsculas
-          year: year
-        }
-      })
-    });
+    try {
+      // Hacer la petición a Anilist
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          variables: {
+            season: season.toUpperCase(),      // Convertir a mayúsculas
+            year: year
+          }
+        })
+      });
 
-    const data = await response.json();
-    // Devolver los animes encontrados o array vacío si no hay
-    return data.data.Page.media || [];
-  } catch (error) {
-    console.error('Error obteniendo animes de temporada:', error);
-    return [];
+      const data = await response.json();
+      // Devolver los animes encontrados o array vacío si no hay
+      return data.data.Page.media || [];
+    } catch (error) {
+      console.error('Error obteniendo animes de temporada:', error);
+      return [];
+    }
   }
-}
 
   public async getTopAnimesByGenre(genre: string, limit: number = 10): Promise<AnilistAnime[]> {
-  // Query GraphQL para obtener animes por género
-  const query = `
+    // Query GraphQL para obtener animes por género
+    const query = `
     query ($genre: String, $limit: Int) {
       Page(page: 1, perPage: $limit) {
         media(
@@ -385,34 +385,34 @@ public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime
     }
   `;
 
-   try {
-    // Realizar petición 
-    const response = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { 
-          genre: genre,
-          limit: limit
-        }
-      })
-    });
+    try {
+      // Realizar petición 
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: {
+            genre: genre,
+            limit: limit
+          }
+        })
+      });
 
-    const data = await response.json();
-    
-    // Organizar resultados por popularidad
-    return data.data.Page.media.map(anime => ({
-      ...anime,
-      popularityRank: anime.popularity
-    })).sort((a, b) => b.popularityRank - a.popularityRank);
-  } catch (error) {
-    console.error(`Error buscando animes de género ${genre}:`, error);
-    return [];
-  }
+      const data = await response.json();
+
+      // Organizar resultados por popularidad
+      return data.data.Page.media.map(anime => ({
+        ...anime,
+        popularityRank: anime.popularity
+      })).sort((a, b) => b.popularityRank - a.popularityRank);
+    } catch (error) {
+      console.error(`Error buscando animes de género ${genre}:`, error);
+      return [];
+    }
   }
 
   private async searchAnilist(title: string): Promise<AnilistAnime> {
@@ -452,10 +452,14 @@ public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime
   async getLastEpisodes(): Promise<Episode[]> {
     try {
       const response = await fetch(this.RSS_URL);
+      if (response.status === 403) {
+        console.error('RSS token has expired or is invalid');
+        return [];
+      }
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const xmlData = await response.text();
       const result = this.parser.parse(xmlData);
 
@@ -470,7 +474,7 @@ public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime
       const episodes = await Promise.all(
         items.slice(0, 5).map(async (item): Promise<Episode> => {
           const parsedInfo = await this.parseAnimeTitle(item.title, item);
-          
+
           return {
             original_title: item.title,
             info: parsedInfo,
@@ -493,11 +497,11 @@ public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime
   async getEnhancedEpisodes(): Promise<(Episode & EnhancedAnimeInfo)[]> {
     try {
       const episodes = await this.getLastEpisodes();
-      
+
       return Promise.all(
         episodes.map(async (episode): Promise<Episode & EnhancedAnimeInfo> => {
           const animeInfo = await this.searchAnilist(episode.info.title);
-          
+
           return {
             ...episode,
             anime: animeInfo,
@@ -522,7 +526,7 @@ public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime
       }
 
       const allEpisodes = await this.getLastEpisodes();
-      return allEpisodes.filter(episode => 
+      return allEpisodes.filter(episode =>
         episode.info.title.toLowerCase().includes(title.toLowerCase())
       );
     } catch (error) {
@@ -531,38 +535,342 @@ public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime
     }
   }
 
-    async getRssAnimeInfo(): Promise<RssAnimeInfo[]> {
-      try {
-        const response = await fetch(this.RSS_URL);
-        if (!response.ok) throw new Error(`HTTP error! : ${response.status}`);
-    
-        const xmlData = await response.text();
-        const result = this.parser.parse(xmlData);
-        const items = Array.isArray(result.rss.channel.item) 
-          ? result.rss.channel.item 
-          : [result.rss.channel.item];
-    
-        return await Promise.all(
-          items.slice(0, 5).map(async (item) => {
-            // Obtener datos del episodio usando anitomyscript
-            const { anime_title, episode_number } = await anitomyscript(item.title);
-            // Buscar información del anime en Anilist
-            const animeInfo = await this.searchAnilist(anime_title);
-    
-            return {
-              anime: animeInfo,
-              episode: parseInt(episode_number) || 0,
-              torrent: {
-                link: item.link,
-                size: item['erai:size']
+  async getRssAnimeInfo(): Promise<RssAnimeInfo[]> {
+    try {
+      const response = await fetch(this.RSS_URL);
+      if (!response.ok) throw new Error(`HTTP error! : ${response.status}`);
+
+      const xmlData = await response.text();
+      const result = this.parser.parse(xmlData);
+      const items = Array.isArray(result.rss.channel.item)
+        ? result.rss.channel.item
+        : [result.rss.channel.item];
+
+      return await Promise.all(
+        items.slice(0, 5).map(async (item) => {
+          // Obtener datos del episodio usando anitomyscript
+          const { anime_title, episode_number } = await anitomyscript(item.title);
+          // Buscar información del anime en Anilist
+          const animeInfo = await this.searchAnilist(anime_title);
+
+          return {
+            anime: animeInfo,
+            episode: parseInt(episode_number) || 0,
+            torrent: {
+              link: item.link,
+              size: item['erai:size']
+            }
+          };
+        })
+      );
+    } catch (error) {
+      console.error('Error:', error);
+      return [];
+    }
+  }
+
+  public async getAllAnimeInformation(): Promise<AnimeEpisodeDetails[]> {
+    try {
+      // Obtener la temporada actual
+      const currentDate = new Date();
+      const month = currentDate.getMonth();
+      let season = '';
+
+      if (month >= 0 && month <= 2) season = 'WINTER';
+      else if (month >= 3 && month <= 5) season = 'SPRING';
+      else if (month >= 6 && month <= 8) season = 'SUMMER';
+      else season = 'FALL';
+
+      // Query 
+      const query = `
+          query ($season: MediaSeason, $year: Int) {
+            Page(page: 1, perPage: 10) {
+              media(season: $season, seasonYear: $year, type: ANIME, sort: POPULARITY_DESC) {
+                id
+                title {
+                  romaji
+                  english
+                  native
+                }
+                duration
+                description(asHtml: false)
+                coverImage {
+                  extraLarge
+                }
+                bannerImage
+                nextAiringEpisode {
+                  episode
+                  airingAt
+                }
+                status
+                episodes
               }
-            };
-          })
-        );
-      } catch (error) {
-        console.error('Error:', error);
+            }
+          }
+        `;
+
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: {
+            season: season,
+            year: currentDate.getFullYear()
+          }
+        })
+      });
+
+      const data = await response.json();
+      const animes = data.data?.Page?.media || [];
+
+      // Obtener información del RSS feed
+      const rssResponse = await fetch(this.RSS_URL);
+      const xmlData = await rssResponse.text();
+      const rssData = this.parser.parse(xmlData);
+      const rssItems = rssData.rss?.channel?.item || [];
+
+      const enrichedEpisodes = await Promise.all(
+        animes.map(async (anime) => {
+          // Buscar el torrent correspondiente
+          const torrentInfo = rssItems.find(item =>
+            item.title.toLowerCase().includes(anime.title.romaji.toLowerCase()) ||
+            (anime.title.english && item.title.toLowerCase().includes(anime.title.english.toLowerCase()))
+          );
+
+          // Obtener información del episodio usando el torrent si existe
+          const { episode_number } = torrentInfo ?
+            await anitomyscript(torrentInfo.title) :
+            { episode_number: anime.nextAiringEpisode?.episode.toString() || "1" };
+
+          const nextEp = anime.nextAiringEpisode;
+          const episodeNum = parseInt(episode_number);
+
+          return {
+            idAnilist: anime.id,
+            title: {
+              romaji: anime.title.romaji,
+              english: anime.title.english,
+              native: anime.title.native
+            },
+            duration: anime.duration,
+            coverImage: {
+              extraLarge: anime.coverImage?.extraLarge
+            },
+            bannerImage: anime.bannerImage,
+            episode: {
+              tvdbShowId: Math.floor(Math.random() * 1000000), 
+              tvdbId: Math.floor(Math.random() * 1000000), 
+              seasonNumber: 1,
+              episodeNumber: episodeNum,
+              absoluteEpisodeNumber: episodeNum,
+              title: {
+                ja: anime.title.native,
+                en: anime.title.english,
+                'x-jat': anime.title.romaji
+              },
+              airDate: nextEp ? new Date(nextEp.airingAt * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              airDateUtc: nextEp ? new Date(nextEp.airingAt * 1000).toISOString() : new Date().toISOString(),
+              runtime: anime.duration || 24,
+              overview: anime.description || '',
+              episode: episode_number,
+              anidbEid: Math.floor(Math.random() * 1000000), 
+              length: anime.duration || 24,
+              airdate: nextEp ? new Date(nextEp.airingAt * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+            },
+            torrent: torrentInfo ? {
+              title: torrentInfo.title,
+              link: torrentInfo.link,
+              pubDate: torrentInfo.pubDate,
+              resolution: '1080p',
+              linkType: 'Torrent',
+              size: torrentInfo['erai:size'] || 'Unknown',
+              infoHash: torrentInfo.infoHash || '',
+              subtitles: '[us][br][mx][es][sa][fr][de][it][ru]',
+              category: '[Airing]',
+              episode: episodeNum,
+              isHevc: torrentInfo.title.toLowerCase().includes('hevc'),
+              hasNetflixSubs: false
+            } : {
+              title: anime.title.romaji,
+              link: '',
+              pubDate: new Date().toISOString(),
+              resolution: '1080p',
+              linkType: 'Torrent',
+              size: 'Unknown',
+              infoHash: '',
+              subtitles: '[us][br][mx][es][sa][fr][de][it][ru]',
+              category: '[Airing]',
+              episode: episodeNum,
+              isHevc: false,
+              hasNetflixSubs: false
+            }
+          };
+        })
+      );
+
+      return enrichedEpisodes
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.torrent.pubDate).getTime() - new Date(a.torrent.pubDate).getTime());
+
+    } catch (error) {
+      console.error('Error getting all anime information:', error);
+      return [];
+    }
+  }
+
+  public async getAnimeEpisodeDetails(
+    animeId: number,
+    page: number = 1,
+    perPage: number = 10
+  ): Promise<AnimeEpisodeDetails[]> {
+    const query = `
+        query ($animeId: Int, $page: Int, $perPage: Int) {
+          Media(id: $animeId, type: ANIME) {
+            id
+            title {
+              romaji
+              english
+              native
+            }
+            coverImage {
+              extraLarge
+            }
+            bannerImage
+            episodes(page: $page, perPage: $perPage) {
+              edges {
+                node {
+                  id
+                  number
+                  title {
+                    romaji
+                    english
+                    native
+                  }
+                  duration
+                  description
+                  airDate
+                }
+              }
+            }
+          }
+        }
+      `;
+
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { animeId, page, perPage }
+        })
+      });
+
+      const data = await response.json();
+
+      // Verificar si hay errores en la respuesta
+      if (data.errors) {
+        console.error('GraphQL errors:', data.errors);
         return [];
       }
-    }
-}
 
+      // Verificar si tenemos los datos necesarios
+      if (!data.data?.Media) {
+        console.error(`No media data found for anime ID ${animeId}`);
+        return [];
+      }
+
+      const { id, title, coverImage, bannerImage, episodes } = data.data.Media;
+
+      // Verificar si hay episodios
+      if (!episodes?.edges?.length) {
+        console.log(`No episodes found for anime ID ${animeId}`);
+        return [{
+          idAnilist: id,
+          title: {
+            romaji: title?.romaji || '',
+            english: title?.english || '',
+            native: title?.native || ''
+          },
+          duration: null,
+          coverImage: {
+            extraLarge: coverImage?.extraLarge || ''
+          },
+          bannerImage: bannerImage || null,
+          episode: null,
+          torrent: {
+            title: title?.romaji || '',
+            link: '',
+            pubDate: new Date().toISOString(),
+            resolution: '1080p',
+            linkType: 'Torrent',
+            size: 'Unknown',
+            infoHash: '',
+            subtitles: '[us][br][mx][es][sa][fr][de][it][ru]',
+            category: '[Airing]',
+            episode: 0,
+            isHevc: false,
+            hasNetflixSubs: false
+          }
+        }];
+      }
+
+      return episodes.edges.map(edge => ({
+        idAnilist: id,
+        title: {
+          romaji: title?.romaji || '',
+          english: title?.english || '',
+          native: title?.native || ''
+        },
+        duration: edge.node?.duration || null,
+        coverImage: {
+          extraLarge: coverImage?.extraLarge || ''
+        },
+        bannerImage: bannerImage || null,
+        episode: edge.node ? {
+          tvdbShowId: 0,
+          tvdbId: 0,
+          seasonNumber: 1,
+          episodeNumber: edge.node.number || 0,
+          absoluteEpisodeNumber: edge.node.number || 0,
+          airDate: edge.node.airDate || new Date().toISOString().split('T')[0],
+          airDateUtc: edge.node.airDate ? new Date(edge.node.airDate).toISOString() : new Date().toISOString(),
+          runtime: edge.node.duration || 24,
+          episode: (edge.node.number || 0).toString(),
+          anidbEid: 0,
+          length: edge.node.duration || 24,
+          airdate: edge.node.airDate || new Date().toISOString().split('T')[0],
+          title: {
+            ja: edge.node.title?.native || '',
+            en: edge.node.title?.english || '',
+            'x-jat': edge.node.title?.romaji || ''
+          },
+          overview: edge.node.description || ''
+        } : null,
+        torrent: {
+          title: title?.romaji || '',
+          link: '',
+          pubDate: new Date().toISOString(),
+          resolution: '1080p',
+          linkType: 'Torrent',
+          size: 'Unknown',
+          infoHash: '',
+          subtitles: '[us][br][mx][es][sa][fr][de][it][ru]',
+          category: '[Airing]',
+          episode: edge.node?.number || 0,
+          isHevc: false,
+          hasNetflixSubs: false
+        }
+      }));
+    } catch (error) {
+      console.error(`Error getting episode details for anime ${animeId}:`, error);
+      return [];
+    }
+  }
+
+}

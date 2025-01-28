@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { RssService } from './rss.service';
-import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, RssAnimeInfo } from './rss.type';
+import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo,  AnimeEpisodeDetails } from './rss.type';
 
 @Controller('rss')
 export class RssController {
@@ -58,7 +58,11 @@ export class RssController {
   async getTopAnimesByGenre(@Param('genre') genre: string, @Query('limit') limit: number = 10) {
   return this.rssService.getTopAnimesByGenre(genre, limit);
 }
-  // ejemplo: http://localhost:3001/rss/top/Drama?limit=5
 
-  
+  @Get('all')
+  async getAllAnimeInformation(): Promise<AnimeEpisodeDetails[]> {
+  return this.rssService.getAllAnimeInformation();
+}
+
+  // ejemplo: http://localhost:3001/rss/top/Drama?limit=5
 }
