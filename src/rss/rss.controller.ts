@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, Post, Body } from '@nestjs/common';
 import { RssService } from './rss.service';
 import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo,  AnimeEpisodeDetails } from './rss.type';
 
@@ -65,4 +65,43 @@ export class RssController {
 }
 
   // ejemplo: http://localhost:3001/rss/top/Drama?limit=5
+
+  // endpoinst dados enero
+
+  /*@Get('list')
+  getAnimes(@Query('quantity') quantity: number) {
+    return this.rssService.findTrending(quantity);
+  }
+*/
+  @Get('list/:idAnilist')
+  getAnime(@Param('idAnilist') idAnilist: number) {
+    return this.rssService.findByAnilistId(idAnilist);
+  }
+
+  //poder ver BD
+  @Get('stored')
+  async getStoredAnimes() {
+    return this.rssService.findAllStored();
+  }
+  /*
+  @Post('search/batch')
+  searchAnimes(@Body() animes) {
+    return this.rssService.searchArray(animes);
+  }
+  
+  */
+/*
+  @Post('search')searchAnime(@Body() { 
+      animeName,
+      limit,
+      status 
+    }: { 
+      animeName: string;
+      limit: number;
+      status?: string;
+    }
+  ) {
+    return this.rssService.search({ animeName, limitResult: limit, status });
+  }
+*/
 }

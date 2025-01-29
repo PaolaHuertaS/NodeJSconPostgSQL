@@ -1,5 +1,8 @@
 import { Injectable, Param, Query } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
+import { Repository } from 'typeorm';
+import { Anime } from '../book/entities/rss.entity';
+import { InjectRepository } from '@nestjs/typeorm'; 
 import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime, RssAnimeInfo, AnimeEpisodeDetails } from './rss.type';
 const anitomyscript = require('anitomyscript');
 
@@ -9,6 +12,11 @@ export class RssService {
     ignoreAttributes: false,
     attributeNamePrefix: ''
   });
+
+  constructor(
+    @InjectRepository(Anime)
+    private animeRepository: Repository<Anime>
+  ) {}
 
   private readonly RSS_URL = 'https://www.erai-raws.info/episodes/feed/?res=1080p&type=torrent&subs%5B0%5D=mx&token=c7aa3ae68b4ef37a904773bb46371e42';
 
@@ -871,6 +879,87 @@ export class RssService {
       console.error(`Error getting episode details for anime ${animeId}:`, error);
       return [];
     }
+  }
+
+  // nuevo enero a febrero
+  public async findByAnilistId(idAnilist: number) {
+    try {
+      // Primero buscar en la base de datos
+      const animeInDb = await this.animeRepository.findOne({
+        where: { idAnilist }
+      });
+
+      if (animeInDb) {
+        console.log('Anime encontrado en DB:', animeInDb);
+        return animeInDb;
+      }
+
+      // Si no está en DB, buscar en Anilist
+      const query = `
+        query ($id: Int) {
+          Media(id: $id, type: ANIME) {
+            id
+            title {
+              romaji
+              english
+              native
+            }
+            coverImage {
+              extraLarge
+            }
+            bannerImage
+            description
+            episodes
+            duration
+            status
+            genres
+          }
+        }
+      `;
+
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { id: idAnilist }
+        })
+      });
+
+      const data = await response.json();
+      const animeData = data.data.Media;
+
+      // Guardar en la base de datos
+      const anime = this.animeRepository.create({
+        idAnilist: animeData.id,
+        title: {
+          romaji: animeData.title.romaji,
+          english: animeData.title.english,
+          native: animeData.title.native
+        },
+        description: animeData.description,
+        coverImage: animeData.coverImage,
+        bannerImage: animeData.bannerImage,
+        genres: animeData.genres,
+        episodes: animeData.episodes,
+        duration: animeData.duration,
+        status: animeData.status
+      });
+
+      const savedAnime = await this.animeRepository.save(anime);
+      console.log('Anime guardado en DB:', savedAnime);
+
+      return savedAnime;
+    } catch (error) {
+      console.error('Error:', error);
+      return null;
+    }
+  }
+
+  async findAllStored() {
+    return await this.animeRepository.find();
   }
 
 }

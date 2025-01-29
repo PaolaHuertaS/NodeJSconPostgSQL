@@ -8,6 +8,7 @@ import { join } from 'path';
 import { readFileSync } from 'fs';
 import { GraphqlModule } from './graphql/graphql.module';
 import { RssModule } from './rss/rss.module';
+import { Anime } from './book/entities/rss.entity';
 
 @Module({
   imports: [
