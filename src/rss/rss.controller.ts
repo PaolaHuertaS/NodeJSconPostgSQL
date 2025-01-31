@@ -68,11 +68,11 @@ export class RssController {
 
   // endpoinst dados enero
 
-  /*@Get('list')
+  @Get('list')
   getAnimes(@Query('quantity') quantity: number) {
     return this.rssService.findTrending(quantity);
   }
-*/
+
   @Get('list/:idAnilist')
   getAnime(@Param('idAnilist') idAnilist: number) {
     return this.rssService.findByAnilistId(idAnilist);
