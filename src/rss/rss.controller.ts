@@ -88,9 +88,8 @@ export class RssController {
   searchAnimes(@Body() animes) {
     return this.rssService.searchArray(animes);
   }
-  
   */
-/*
+  
   @Post('search')searchAnime(@Body() { 
       animeName,
       limit,
@@ -103,5 +102,4 @@ export class RssController {
   ) {
     return this.rssService.search({ animeName, limitResult: limit, status });
   }
-*/
 }
