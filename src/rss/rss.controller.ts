@@ -90,16 +90,21 @@ export class RssController {
   }
   */
   
-  @Post('search')searchAnime(@Body() { 
-      animeName,
-      limit,
-      status 
-    }: { 
-      animeName: string;
-      limit: number;
-      status?: string;
-    }
+  @Post('search')
+  searchAnime(
+  @Body() searchParams: {
+    animeName: string;
+    limit: number;
+    status?: string;
+  }
   ) {
-    return this.rssService.search({ animeName, limitResult: limit, status });
+  if (!searchParams.animeName) {
+    return [];  // o retornar un error
+  }
+  return this.rssService.search({ 
+    animeName: searchParams.animeName,
+    limitResult: searchParams.limit,
+    status: searchParams.status 
+  });
   }
 }

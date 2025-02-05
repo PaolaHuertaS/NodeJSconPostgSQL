@@ -1057,112 +1057,117 @@ public async findTrending(quantity: number) {
     return [];
   }
 }
-  public async search({ 
-    animeName, 
-    limitResult, 
-    status 
-  }: { 
-    animeName: string;
-    limitResult: number;
-    status?: string;
-  }) {
-    try {
-      //Primero buscar en la base de datos
-      const storedAnimes = await this.animeRepository.find({
-        where: {
-          title: { romaji: Like(`%${animeName}%`) }
-        },
-        take: limitResult
-      });
-  
-      if (storedAnimes.length >= limitResult) {
-        console.log(`Animes encontrados en DB para "${animeName}":`, storedAnimes.length);
-        return storedAnimes;
-      }
-  
-      //Si no hay suficientes resultados, buscar en Anilist
-      const query = `
-        query ($search: String, $perPage: Int, $status: MediaStatus) {
-          Page(page: 1, perPage: $perPage) {
-            media(search: $search, type: ANIME, status: $status) {
-              id
-              title {
-                romaji
-                english
-                native
-              }
-              coverImage {
-                extraLarge
-              }
-              bannerImage
-              description
-              episodes
-              duration
-              status
-              genres
+public async search({ 
+  animeName, 
+  limitResult, 
+  status 
+}: { 
+  animeName: string;
+  limitResult: number;
+  status?: string;
+}) {
+  try {
+    //mejora: búsqueda optimizada en DB usando QueryBuilder = herramienta de TypeORM
+    const storedAnimes = await this.animeRepository
+      .createQueryBuilder('anime')
+      .where(`anime.title->>'romaji' ILIKE :name OR anime.title->>'english' ILIKE :name`, {
+        name: `%${animeName}%`
+      })
+      .take(limitResult)
+      .getMany();
+
+    console.log(`Animes encontrados en DB para "${animeName}":`, storedAnimes.length);
+
+    //mejora:si hay suficientes resultados en DB, los retornamos
+    if (storedAnimes.length >= limitResult) {
+      return storedAnimes;
+    }
+
+    //mejora:búsqueda en Anilist solo si es necesario
+    const query = `
+      query ($search: String, $perPage: Int, $status: MediaStatus) {
+        Page(page: 1, perPage: $perPage) {
+          media(search: $search, type: ANIME, sort: POPULARITY_DESC, status: $status) {
+            id
+            title {
+              romaji
+              english
+              native
             }
+            coverImage {
+              extraLarge
+            }
+            bannerImage
+            description
+            episodes
+            duration
+            status
+            genres
           }
         }
-      `;
-  
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          variables: { 
-            search: animeName,
-            perPage: limitResult,
-            status: status?.toUpperCase()
-          }
-        })
-      });
-  
-      const data = await response.json();
-      const animes = data.data.Page.media;
-  
-      //Guardar los nuevos animes en la base de datos
-      const savedAnimes = await Promise.all(
-        animes.map(async (animeData) => {
-          //Verificar si ya existe
-          const existingAnime = await this.animeRepository.findOne({
-            where: { idAnilist: animeData.id }
-          });
-  
-          if (existingAnime) {
-            console.log('Anime ya existe en DB:', existingAnime.title.romaji);
-            return existingAnime;
-          }
-  
-          //Crear y guardar nuevo anime
-          const anime = this.animeRepository.create({
-            idAnilist: animeData.id,
-            title: {
-              romaji: animeData.title.romaji,
-              english: animeData.title.english,
-              native: animeData.title.native
-            },
-            description: animeData.description,
-            coverImage: animeData.coverImage,
-            bannerImage: animeData.bannerImage,
-            genres: animeData.genres,
-            episodes: animeData.episodes,
-            duration: animeData.duration,
-            status: animeData.status
-          });
-  
-          const savedAnime = await this.animeRepository.save(anime);
-          console.log('Nuevo anime guardado en DB:', savedAnime.title.romaji);
-          return savedAnime;
-        })
-      );
-  
-      return savedAnimes;
-    } catch (error) {
-      console.error('Error en search:', error);
-      return [];
-    }
+      }
+    `;
+
+    const response = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        variables: { 
+          search: animeName,
+          perPage: limitResult - storedAnimes.length, //mejora: ajustar cantidad a buscar
+          status: status?.toUpperCase()
+        }
+      })
+    });
+
+    const data = await response.json();
+    const animes = data.data?.Page?.media || [];
+
+    // mejora verificación mejorada de duplicados
+    const newAnimes = await Promise.all(
+      animes.map(async (animeData) => {
+        const existingAnime = await this.animeRepository
+          .createQueryBuilder('anime')
+          .where(`anime.title->>'romaji' ILIKE :title OR anime.idAnilist = :id`, {
+            title: animeData.title.romaji,
+            id: animeData.id
+          })
+          .getOne();
+
+        if (existingAnime) {
+          console.log('Anime ya existe en DB:', existingAnime.title.romaji);
+          return existingAnime;
+        }
+
+        const anime = this.animeRepository.create({
+          idAnilist: animeData.id,
+          title: {
+            romaji: animeData.title.romaji,
+            english: animeData.title.english,
+            native: animeData.title.native
+          },
+          description: animeData.description,
+          coverImage: animeData.coverImage,
+          bannerImage: animeData.bannerImage,
+          genres: animeData.genres,
+          episodes: animeData.episodes,
+          duration: animeData.duration,
+          status: animeData.status
+        });
+
+        const savedAnime = await this.animeRepository.save(anime);
+        console.log('Nuevo anime guardado en DB:', savedAnime.title.romaji);
+        return savedAnime;
+      })
+    );
+
+    //Mjora combinar resultados de DB y nuevos
+    return [...storedAnimes, ...newAnimes];
+
+  } catch (error) {
+    console.error('Error en search:', error);
+    return [];
   }
+}
 }
