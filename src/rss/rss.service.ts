@@ -4,6 +4,7 @@ import { Repository, Like } from 'typeorm';
 import { Anime } from '../book/entities/rss.entity';
 import { InjectRepository } from '@nestjs/typeorm'; 
 import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime, RssAnimeInfo, AnimeEpisodeDetails } from './rss.type';
+import { skip } from 'rxjs';
 const anitomyscript = require('anitomyscript');
 
 @Injectable()
@@ -1060,22 +1061,31 @@ public async findTrending(quantity: number) {
 public async search({ 
   animeName, 
   limitResult, 
-  status 
+  status,
+  page = 1
 }: { 
   animeName: string;
   limitResult: number;
   status?: string;
+  page?: number;
 }) {
   try {
+    const skip = (page - 1) * limitResult;
+
     //mejora: búsqueda optimizada en DB usando QueryBuilder = herramienta de TypeORM
-    const storedAnimes = await this.animeRepository
+    const queryBuilder =  this.animeRepository
       .createQueryBuilder('anime')
       .where(`anime.title->>'romaji' ILIKE :name OR anime.title->>'english' ILIKE :name`, {
         name: `%${animeName}%`
       })
+      // Obtener el total
+    const totalCount = await queryBuilder.getCount();
+
+    // Obtener los resultados paginados
+    const storedAnimes = await queryBuilder
+      .skip(skip)
       .take(limitResult)
       .getMany();
-
     console.log(`Animes encontrados en DB para "${animeName}":`, storedAnimes.length);
 
     //mejora:si hay suficientes resultados en DB, los retornamos
@@ -1163,11 +1173,26 @@ public async search({
     );
 
     //Mjora combinar resultados de DB y nuevos
-    return [...storedAnimes, ...newAnimes];
-
+    return {
+      data: storedAnimes,
+      pagination: {
+        current: page,
+        limit: limitResult,
+        totalItems: totalCount,
+        pages: Math.ceil(totalCount / limitResult)
+      }
+    };
   } catch (error) {
     console.error('Error en search:', error);
-    return [];
+    return {
+      data: [],
+      pagination: {
+        current: page,
+        limit: limitResult,
+        total: 0,
+        pages: 0
+  }
+  };
   }
 }
 
