@@ -1058,16 +1058,19 @@ public async findTrending(quantity: number) {
     return [];
   }
 }
+
 public async search({ 
   animeName, 
   limitResult, 
   status,
-  page = 1
+  page = 1 ,
+  genre
 }: { 
   animeName: string;
   limitResult: number;
   status?: string;
   page?: number;
+  genre?: string;
 }) {
   try {
     const skip = (page - 1) * limitResult;
@@ -1090,7 +1093,15 @@ public async search({
 
     //mejora:si hay suficientes resultados en DB, los retornamos
     if (storedAnimes.length >= limitResult) {
-      return storedAnimes;
+      return {
+        data: storedAnimes,
+        pagination: {
+          currentPage: page,
+          itemsPerPage: limitResult,
+          totalItems: totalCount,
+          totalPages: Math.ceil(totalCount / limitResult)
+        }
+      };
     }
 
     //mejora:búsqueda en Anilist solo si es necesario
@@ -1173,28 +1184,28 @@ public async search({
     );
 
     //Mjora combinar resultados de DB y nuevos
+    // Mejora combinar resultados de DB y nuevos
     return {
-      data: storedAnimes,
-      pagination: {
-        current: page,
-        limit: limitResult,
-        totalItems: totalCount,
-        pages: Math.ceil(totalCount / limitResult)
-      }
-    };
+    data: [...storedAnimes, ...newAnimes],  // Combinar ambos arrays
+    pagination: {
+    currentPage: page,
+    itemsPerPage: limitResult,
+    totalItems: totalCount + newAnimes.length,  // Sumar nuevos items al total
+    totalPages: Math.ceil((totalCount + newAnimes.length) / limitResult)
+   }
+  };
   } catch (error) {
     console.error('Error en search:', error);
     return {
       data: [],
       pagination: {
-        current: page,
-        limit: limitResult,
-        total: 0,
-        pages: 0
-  }
-  };
-  }
-}
+        currentPage: page,
+        itemsPerPage: limitResult,
+        totalItems: 0,
+        totalPages: 0
+      }
+    };
+  }}
 
 public async searchArray(animes: string[]) {
   try {

@@ -96,6 +96,7 @@ export class RssController {
     limit: number;
     status?: string;
     page?: number; 
+    genre?: string;
   }
   ) {
   if (!searchParams.animeName) {
@@ -105,7 +106,8 @@ export class RssController {
     animeName: searchParams.animeName,
     limitResult: searchParams.limit,
     status: searchParams.status,
-    page: searchParams.page || 1
+    page: searchParams.page || 1 ,
+    genre: searchParams.genre
   });
   }
 }
