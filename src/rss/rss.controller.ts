@@ -83,12 +83,11 @@ export class RssController {
   async getStoredAnimes() {
     return this.rssService.findAllStored();
   }
-  /*
+  
   @Post('search/batch')
   searchAnimes(@Body() animes) {
     return this.rssService.searchArray(animes);
   }
-  */
   
   @Post('search')
   searchAnime(

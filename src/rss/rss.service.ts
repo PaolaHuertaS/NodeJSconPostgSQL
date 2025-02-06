@@ -1170,4 +1170,26 @@ public async search({
     return [];
   }
 }
+
+public async searchArray(animes: string[]) {
+  try {
+    const results = await Promise.all(
+      animes.map(animeName => 
+        this.search({ 
+          animeName, 
+          limitResult: 1, // Solo el mejor resultado para cada uno
+          status: undefined 
+        })
+      )
+    );
+
+    // Aplanar resultados y eliminar vacíos
+    return results
+      .flat()
+      .filter(Boolean);
+  } catch (error) {
+    console.error('Error en búsqueda por lote:', error);
+    return [];
+  }
+}
 }
