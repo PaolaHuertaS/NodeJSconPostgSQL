@@ -18,8 +18,12 @@ export class RssController {
   }
 
   @Get('enhanced')
-  async getEnhancedEpisodes(): Promise<EnhancedAnimeInfo[]> {
-    return this.rssService.getEnhancedEpisodes();
+  async getEnhancedEpisodes(
+  @Query('season') season?: string,
+  @Query('status') status?: string,
+  @Query('format') format?: string
+  ): Promise<EnhancedAnimeInfo[]> {
+    return this.rssService.getEnhancedEpisodes(season, status, format);
   }
 
   @Get('anime')

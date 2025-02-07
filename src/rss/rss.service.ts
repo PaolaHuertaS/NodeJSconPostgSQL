@@ -1,8 +1,10 @@
-import { Injectable, Param, Query } from '@nestjs/common';
+import { Injectable, Param, Query, Logger, Inject} from '@nestjs/common';
+import { Cache } from 'cache-manager';
 import { XMLParser } from 'fast-xml-parser';
 import { Repository, Like } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Anime } from '../book/entities/rss.entity';
-import { InjectRepository } from '@nestjs/typeorm'; 
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime, RssAnimeInfo, AnimeEpisodeDetails } from './rss.type';
 import { skip } from 'rxjs';
 const anitomyscript = require('anitomyscript');
@@ -16,7 +18,9 @@ export class RssService {
 
   constructor(
     @InjectRepository(Anime)
-    private animeRepository: Repository<Anime>
+    private animeRepository: Repository<Anime>, 
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly logger: Logger = new Logger(RssService.name)
   ) {}
 
   private readonly RSS_URL = 'https://www.erai-raws.info/episodes/feed/?res=1080p&type=torrent&subs%5B0%5D=mx&token=c7aa3ae68b4ef37a904773bb46371e42';
@@ -503,16 +507,17 @@ export class RssService {
     }
   }
 
-  async getEnhancedEpisodes(): Promise<(Episode & EnhancedAnimeInfo)[]> {
+  async getEnhancedEpisodes(
+    season?: string,
+    status?: string,
+    format?: string
+  ): Promise<EnhancedAnimeInfo[]> {
     try {
       const episodes = await this.getLastEpisodes();
-
-      return Promise.all(
-        episodes.map(async (episode): Promise<Episode & EnhancedAnimeInfo> => {
+      const enhancedEpisodes = await Promise.all(
+        episodes.map(async (episode) => {
           const animeInfo = await this.searchAnilist(episode.info.title);
-
           return {
-            ...episode,
             anime: animeInfo,
             episode: episode.info.episode,
             torrent: {
@@ -522,11 +527,28 @@ export class RssService {
           };
         })
       );
+      return enhancedEpisodes.filter(Boolean);
     } catch (error) {
-      console.error('Error:', error);
+      this.logger.error('Error:', error);
       return [];
     }
   }
+      
+   private async fetchFromAnilist(query: string, variables: any) {
+           const response = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, variables })
+          });
+          return response.json();
+        }
+
+ private isCurrentSeason(airingAt: number): boolean {
+  if (!airingAt) return false;
+    const now = new Date();
+      const airingDate = new Date(airingAt * 1000);
+      return now.getMonth() === airingDate.getMonth();
+        }
 
   async searchByAnimeTitle(title: string): Promise<Episode[]> {
     try {
