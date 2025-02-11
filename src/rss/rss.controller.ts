@@ -1,6 +1,7 @@
-import { Controller, Get, Param, Query, Post, Body } from '@nestjs/common';
+import { Controller, Get, Param, Query, Post, Body, Put } from '@nestjs/common';
 import { RssService } from './rss.service';
 import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo,  AnimeEpisodeDetails } from './rss.type';
+import { Anime } from 'src/book/entities/rss.entity';
 
 @Controller('rss')
 export class RssController {
@@ -114,4 +115,21 @@ export class RssController {
     genre: searchParams.genre
   });
   }
+
+  @Get('episodes/:idAnilist/:episode')
+  getEpisodeData(
+    @Param('idAnilist') idAnilist: number,
+    @Param('episode') episode: string
+  ) {
+    return this.rssService.getEpisodeData(idAnilist, episode);
+  }
+
+  //endpoint d put, falta su get, actualizacion: 
+ /*@Put(':idAnilist')
+  async updateAnime(
+  @Param('idAnilist') idAnilist: number,
+  @Body() updateAnimeDto: Partial<Anime>
+  ) {
+  return this.rssService.updateByAnilistId(idAnilist, updateAnimeDto);
+  }*/
 }

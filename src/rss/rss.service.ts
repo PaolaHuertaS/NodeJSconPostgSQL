@@ -1081,6 +1081,60 @@ public async findTrending(quantity: number) {
   }
 }
 
+//obtener episodios especificos
+async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
+  try {
+    const query = `
+      query ($id: Int) {
+        Media (id: $id, type: ANIME) {
+          id
+          title {
+            romaji
+            english
+            native
+          }
+          episodes
+          nextAiringEpisode {
+            episode
+            airingAt
+          }
+        }
+      }
+    `;
+
+    const response = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        variables: { id: idAnilist }
+      })
+    });
+
+    const data = await response.json();
+    if (!data.data?.Media) {
+      throw new Error('Anime not found');
+    }
+
+    //Obtener info del RSS para el episodio específico
+    const rssResponse = await fetch(this.RSS_URL);
+    const xmlData = await rssResponse.text();
+    const rssData = this.parser.parse(xmlData);
+    const episodeInfo = rssData.rss?.channel?.item?.find(item => 
+      item.title.includes(data.data.Media.title.romaji) && 
+      item.title.includes(`Episode ${episode}`)
+    );
+
+    return {
+      animeInfo: data.data.Media,
+      episodeData: episodeInfo || null
+    };
+  } catch (error) {
+    this.logger.error(`Error getting episode data for anime ${idAnilist}, episode ${episode}:`, error);
+    return null;
+  }
+}
+
 public async search({ 
   animeName, 
   limitResult, 
@@ -1248,6 +1302,9 @@ public async searchArray(animes: string[]) {
   } catch (error) {
     console.error('Error en búsqueda por lote:', error);
     return [];
+    }
   }
-}
-}
+} 
+
+
+
