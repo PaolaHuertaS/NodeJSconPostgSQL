@@ -116,6 +116,17 @@ export class RssController {
   });
   }
 
+  @Get('episodes/:idAnilist')
+  getAllAnimeEpisodes(
+    @Param('idAnilist') idAnilist: number,
+    @Query('torrents') torrents?: string,
+    @Query('withHevc') withHevc?: string
+  ) {
+    const includeTorrents = torrents === 'true';
+    const includeHevc = withHevc === 'true';
+    return this.rssService.getAllAnimeEpisodes(idAnilist, includeTorrents, includeHevc);
+  }
+
   @Get('episodes/:idAnilist/:episode')
   getEpisodeData(
     @Param('idAnilist') idAnilist: number,
@@ -123,13 +134,24 @@ export class RssController {
   ) {
     return this.rssService.getEpisodeData(idAnilist, episode);
   }
+/*
+  @Get('rss')
+  getRssFeed(
+  @Query('page') page: number = 1,
+  @Query('perPage') perPage: number = 10,
+  @Query('withHevc') withHevc: string
+  ) {
+    const includeHevc = withHevc === 'true';
+    return this.rssService.getRssFeed(page, perPage, includeHevc);
+  }
 
   //endpoint d put, falta su get, actualizacion: 
- /*@Put(':idAnilist')
+  /*
+  @Put(':idAnilist')
   async updateAnime(
   @Param('idAnilist') idAnilist: number,
   @Body() updateAnimeDto: Partial<Anime>
-  ) {
+   ) {
   return this.rssService.updateByAnilistId(idAnilist, updateAnimeDto);
-  }*/
+   }*/
 }

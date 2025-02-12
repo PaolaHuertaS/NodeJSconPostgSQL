@@ -20,7 +20,7 @@ import { Anime } from './book/entities/rss.entity';
       username: 'avnadmin',
       password: 'AVNS_45IjXrwFDcUCLByHI_v',
       database: 'defaultdb',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      entities: [Anime],
       synchronize: true,
       ssl: {
         ca: readFileSync(join(process.cwd(), 'ca.pem')).toString(),
