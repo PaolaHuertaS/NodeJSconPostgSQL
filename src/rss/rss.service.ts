@@ -1160,7 +1160,7 @@ async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
 async getAllAnimeEpisodes(
   idAnilist: number,
   includeTorrents: boolean,
-  includeHevc: boolean
+  includeHevc: boolean 
 ): Promise<any> {
   try {
     const query = `
@@ -1219,6 +1219,81 @@ async getAllAnimeEpisodes(
       animeInfo: null,
       episodes: []
     };
+  }
+}
+
+async updateAnime(
+  idAnilist: number,
+  updateData: {
+    status?: string;
+    description?: string;
+    episodes?: number;
+  }
+) {
+  try {
+    let anime = await this.animeRepository.findOne({
+      where: { idAnilist }
+    });
+
+    if (!anime) {
+      const query = `
+        query ($id: Int) {
+          Media(id: $id, type: ANIME) {
+            id
+            title {
+              romaji
+              english
+              native
+            }
+            description
+            episodes
+            status
+            genres
+            coverImage {
+              extraLarge
+              medium
+              color
+            }
+            startDate {
+              year
+              month
+              day
+            }
+            synonyms
+          }
+        }
+      `;
+
+      const animeInfo = await this.fetchFromAnilist(query, { id: idAnilist });
+      const mediaData = animeInfo.data.Media;
+
+      anime = this.animeRepository.create({
+        idAnilist: mediaData.id,
+        title: mediaData.title,
+        description: mediaData.description,
+        episodes: mediaData.episodes,
+        status: mediaData.status,
+        genres: mediaData.genres || [], 
+        coverImage: mediaData.coverImage,
+        startDate: mediaData.startDate,
+        synonyms: mediaData.synonyms || [],
+        descriptionTranslated: false,
+        nextAiringEpisode: null
+      });
+
+      anime = await this.animeRepository.save(anime);
+    }
+
+    if (updateData.status) anime.status = updateData.status;
+    if (updateData.description) anime.description = updateData.description;
+    if (updateData.episodes) anime.episodes = updateData.episodes;
+
+    const updatedAnime = await this.animeRepository.save(anime);
+    return updatedAnime;
+
+  } catch (error) {
+    this.logger.error(`Error updating anime ${idAnilist}:`, error);
+    throw new Error(`Error updating anime: ${error.message}`);
   }
 }
 

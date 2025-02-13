@@ -144,14 +144,14 @@ export class RssController {
     const includeHevc = withHevc === 'true';
     return this.rssService.getRssFeed(page, perPage, includeHevc);
   }
-
+*/
   //endpoint d put, falta su get, actualizacion: 
-  /*
+  
   @Put(':idAnilist')
   async updateAnime(
   @Param('idAnilist') idAnilist: number,
   @Body() updateAnimeDto: Partial<Anime>
    ) {
-  return this.rssService.updateByAnilistId(idAnilist, updateAnimeDto);
-   }*/
+  return this.rssService.updateAnime(idAnilist, updateAnimeDto);
+   }
 }

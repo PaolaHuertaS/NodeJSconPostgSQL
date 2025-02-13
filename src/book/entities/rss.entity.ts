@@ -2,13 +2,17 @@
 
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
+@Entity('Anime') 
 export class Anime {
   @PrimaryGeneratedColumn()
   id: number
+
   @Column()
   idAnilist: number
+
   @Column({ nullable: true })
   idMal: number
+
   @Column({ type: 'json' })
   title: {
     romaji: string
