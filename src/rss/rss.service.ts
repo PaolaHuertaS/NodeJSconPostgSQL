@@ -1297,6 +1297,64 @@ async updateAnime(
   }
 }
 
+async getAnimeRecommendations(animeId: number) {
+  try {
+    const query = `
+      query ($id: Int) {
+        Media (id: $id, type: ANIME) {
+          recommendations(page: 1, perPage: 10) {
+            nodes {
+              mediaRecommendation {
+                id
+                title {
+                  romaji
+                  english
+                  native
+                }
+                coverImage {
+                  large
+                }
+                genres
+                averageScore
+                episodes
+                status
+                description
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const response = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        variables: { id: animeId }
+      })
+    });
+
+    const data = await response.json();
+    const recommendations = data.data?.Media?.recommendations?.nodes || [];
+
+    return recommendations.map(node => ({
+      id: node.mediaRecommendation.id,
+      title: node.mediaRecommendation.title,
+      cover: node.mediaRecommendation.coverImage.large,
+      genres: node.mediaRecommendation.genres,
+      score: node.mediaRecommendation.averageScore,
+      episodes: node.mediaRecommendation.episodes,
+      status: node.mediaRecommendation.status,
+      description: node.mediaRecommendation.description
+    }));
+
+  } catch (error) {
+    this.logger.error('Error getting recommendations:', error);
+    return [];
+  }
+}
+
 public async search({ 
   animeName, 
   limitResult, 

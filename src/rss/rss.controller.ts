@@ -3,7 +3,7 @@ import { RssService } from './rss.service';
 import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo,  AnimeEpisodeDetails } from './rss.type';
 import { Anime } from 'src/book/entities/rss.entity';
 
-@Controller('rss')
+@Controller('anime')
 export class RssController {
   constructor(private readonly rssService: RssService) { }
 
@@ -114,6 +114,11 @@ export class RssController {
     page: searchParams.page || 1 ,
     genre: searchParams.genre
   });
+  }
+
+  @Get('recommendations/:idAnilist')
+  getAnimeRecommendations(@Param('idAnilist') idAnilist: number) {
+  return this.rssService.getAnimeRecommendations(idAnilist);
   }
 
   @Get('episodes/:idAnilist')
