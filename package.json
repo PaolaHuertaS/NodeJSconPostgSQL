@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@apollo/server": "^4.11.3",
     "@graphql-typed-document-node/core": "^3.2.0",
     "@nestjs/axios": "^3.1.2",
     "@nestjs/cache-manager": "^3.0.0",
@@ -36,7 +37,7 @@
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.5",
     "fast-xml-parser": "^4.5.0",
-    "graphql": "^16.9.0",
+    "graphql": "^16.10.0",
     "graphql-request": "^7.1.2",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.0",

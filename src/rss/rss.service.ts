@@ -7,6 +7,8 @@ import { Anime } from '../book/entities/rss.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime, RssAnimeInfo, AnimeEpisodeDetails } from './rss.type';
 import { skip } from 'rxjs';
+import { query_anime } from './query';
+import { GraphQLAnime } from './graphsql.service';
 const anitomyscript = require('anitomyscript');
 
 @Injectable()
@@ -24,44 +26,26 @@ export class RssService {
   ) {}
 
   private readonly RSS_URL = 'https://www.erai-raws.info/episodes/feed/?res=1080p&type=torrent&subs%5B0%5D=mx&token=c7aa3ae68b4ef37a904773bb46371e42';
+  private readonly api_url = 'https://graphql.anilist.co';
 
   public async getAnimeDetailsFromAnilist(title: string): Promise<AnilistAnime> {
-    const query = `
-      query ($search: String) {
-        Media (search: $search, type: ANIME) {
-          id
-          title {
-            romaji
-            english
-            native
-          }
-          genres
-          description
-          status
-          episodes
-          duration
-          averageScore
-        }
-      }
-    `;
-
     try {
-      const response = await fetch('https://graphql.anilist.co', {
+      const response = await fetch(this.api_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          query,
-          variables: { search: title }
+          query: query_anime.anime_detalles,
+          variables: { search: title.trim() } //trim ayuda a eliminar espacios
         })
       });
 
       const data = await response.json();
       return data.data.Media;
     } catch (error) {
-      console.error('Error Anilist:', error);
+      this.logger.error('Error:', error);
       return null;
     }
   }

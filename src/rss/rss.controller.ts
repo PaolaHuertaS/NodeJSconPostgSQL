@@ -34,6 +34,7 @@ export class RssController {
 
   @Get('details/:title')
   async getAnimeDetails(@Param('title') title: string) {
+    const decodedTitle = decodeURIComponent(title);
     return this.rssService.getAnimeDetailsFromAnilist(title);
   }
 
