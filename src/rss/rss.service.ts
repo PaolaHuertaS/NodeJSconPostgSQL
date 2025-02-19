@@ -51,42 +51,15 @@ export class RssService {
   }
 
   public async getSimilarAnimes(animeId: number): Promise<AnilistAnime[]> {
-    // Query de GraphQL para obtener recomendaciones de un anime específico
-    // El $id es una variable que se reemplazará con animeId
-    const query = `
-      query ($id: Int) {
-        Media (id: $id, type: ANIME) {   
-          id
-          recommendations(page: 1, perPage: 5) {    
-            nodes {
-              mediaRecommendation {    
-                id                    
-                title {                
-                  romaji             
-                  english            
-                  native            
-                }
-                genres               
-                description        
-                episodes           
-                averageScore      
-              }
-            }
-          }
-        }
-      }
-    `;
-
     try {
-      // Hacer la petición a la API de Anilist
-      const response = await fetch('https://graphql.anilist.co', {
+      const response = await fetch(this.api_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         // El body incluye la query y las variables necesarias
         body: JSON.stringify({
-          query,
+          query: query_anime.anime_recomendaciones, 
           variables: { id: animeId }  // Pasamos el ID como variable
         })
       });
@@ -519,7 +492,7 @@ export class RssService {
   }
       
    private async fetchFromAnilist(query: string, variables: any) {
-           const response = await fetch('https://graphql.anilist.co', {
+           const response = await fetch(this.api_url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query, variables })
@@ -596,41 +569,13 @@ export class RssService {
       else if (month >= 6 && month <= 8) season = 'SUMMER';
       else season = 'FALL';
 
-      // Query 
-      const query = `
-          query ($season: MediaSeason, $year: Int) {
-            Page(page: 1, perPage: 10) {
-              media(season: $season, seasonYear: $year, type: ANIME, sort: POPULARITY_DESC) {
-                id
-                title {
-                  romaji
-                  english
-                  native
-                }
-                duration
-                description(asHtml: false)
-                coverImage {
-                  extraLarge
-                }
-                bannerImage
-                nextAiringEpisode {
-                  episode
-                  airingAt
-                }
-                status
-                episodes
-              }
-            }
-          }
-        `;
-
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query,
+          query: query_anime.anime_todo,
           variables: {
             season: season,
             year: currentDate.getFullYear()
@@ -902,35 +847,13 @@ export class RssService {
       }
 
       // Si no está en DB, buscar en Anilist
-      const query = `
-        query ($id: Int) {
-          Media(id: $id, type: ANIME) {
-            id
-            title {
-              romaji
-              english
-              native
-            }
-            coverImage {
-              extraLarge
-            }
-            bannerImage
-            description
-            episodes
-            duration
-            status
-            genres
-          }
-        }
-      `;
-
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query,
+          query: query_anime.anime_findanilist, 
           variables: { id: idAnilist }
         })
       });
@@ -969,7 +892,7 @@ export class RssService {
     return await this.animeRepository.find();
   }
 
-  
+  /*
 public async findTrending(quantity: number) {
   try {
     // 1. Obtener animes de la base de datos primero
@@ -984,86 +907,22 @@ public async findTrending(quantity: number) {
     }
 
     // 2. Si no hay suficientes, buscar en Anilist
-    const query = `
-      query ($perPage: Int) {
-        Page(page: 1, perPage: $perPage) {
-          media(type: ANIME, sort: TRENDING_DESC) {
-            id
-            title {
-              romaji
-              english
-              native
-            }
-            coverImage {
-              extraLarge
-            }
-            bannerImage
-            description
-            episodes
-            duration
-            status
-            genres
-          }
-        }
-      }
-    `;
 
-    const response = await fetch('https://graphql.anilist.co', {
+    const response = await fetch(this.api_url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        query,
-        variables: { perPage: quantity }
+        query: query_anime.anime_trending, 
+        variables: { perPage: quantity, season: null, year: null }
       })
     });
 
-    const data = await response.json();
-    const animes = data.data.Page.media;
-
-    // 3. Guardar los nuevos animes en la base de datos
-    const savedAnimes = await Promise.all(
-      animes.map(async (animeData) => {
-        // Verificar si ya existe
-        const existingAnime = await this.animeRepository.findOne({
-          where: { idAnilist: animeData.id }
-        });
-
-        if (existingAnime) {
-          console.log('Anime ya existe en DB:', existingAnime.title.romaji);
-          return existingAnime;
-        }
-
-        // Crear nuevo anime
-        const anime = this.animeRepository.create({
-          idAnilist: animeData.id,
-          title: {
-            romaji: animeData.title.romaji,
-            english: animeData.title.english,
-            native: animeData.title.native
-          },
-          description: animeData.description,
-          coverImage: animeData.coverImage,
-          bannerImage: animeData.bannerImage,
-          genres: animeData.genres,
-          episodes: animeData.episodes,
-          duration: animeData.duration,
-          status: animeData.status
-        });
-
-        const savedAnime = await this.animeRepository.save(anime);
-        console.log('Nuevo anime guardado en DB:', savedAnime.title.romaji);
-        return savedAnime;
-      })
-    );
-
-    return savedAnimes;
-  } catch (error) {
-    console.error('Error en findTrending:', error);
-    return [];
-  }
-}
+    
+         
+}*/
+      
 
 //obtener episodios especificos
 async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
@@ -1147,26 +1006,7 @@ async getAllAnimeEpisodes(
   includeHevc: boolean 
 ): Promise<any> {
   try {
-    const query = `
-      query ($id: Int) {
-        Media (id: $id, type: ANIME) {
-          id
-          title {
-            romaji
-            english
-            native
-          }
-          episodes
-          nextAiringEpisode {
-            episode
-            airingAt
-          }
-          status
-        }
-      }
-    `;
-
-    const animeInfo = await this.fetchFromAnilist(query, { id: idAnilist });
+    const animeInfo = await this.fetchFromAnilist(query_anime.anime_todo, { id: idAnilist });
 
     if (includeTorrents) {
       const rssResponse = await fetch(this.RSS_URL);
@@ -1283,38 +1123,11 @@ async updateAnime(
 
 async getAnimeRecommendations(animeId: number) {
   try {
-    const query = `
-      query ($id: Int) {
-        Media (id: $id, type: ANIME) {
-          recommendations(page: 1, perPage: 10) {
-            nodes {
-              mediaRecommendation {
-                id
-                title {
-                  romaji
-                  english
-                  native
-                }
-                coverImage {
-                  large
-                }
-                genres
-                averageScore
-                episodes
-                status
-                description
-              }
-            }
-          }
-        }
-      }
-    `;
-
     const response = await fetch('https://graphql.anilist.co', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query,
+        query: query_anime.anime_recomendaciones,
         variables: { id: animeId }
       })
     });

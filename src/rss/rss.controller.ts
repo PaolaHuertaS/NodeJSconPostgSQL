@@ -31,20 +31,19 @@ export class RssController {
   getRssAnimeInfo() {
     return this.rssService.getRssAnimeInfo();
   }
-
+ //apartir d aqui es todo lo de animeton 
   @Get('details/:title')
   async getAnimeDetails(@Param('title') title: string) {
     const decodedTitle = decodeURIComponent(title);
     return this.rssService.getAnimeDetailsFromAnilist(title);
   }
-
-    //nuevo 
+//getAnimeDetails actualizada
 
   @Get('similar/:id')
   async getSimilarAnimes(@Param('id') id: number) {
   return this.rssService.getSimilarAnimes(id);
   }
-
+//getSimilarAnimes actualizado 
   @Get('anime/:id/stats')
   async getAnimeStats(@Param('id') id: number) {
   return this.rssService.getAnimeStats(id);
@@ -69,31 +68,33 @@ export class RssController {
   async getAllAnimeInformation(): Promise<AnimeEpisodeDetails[]> {
   return this.rssService.getAllAnimeInformation();
 }
-
+//acutalizado
   // ejemplo: http://localhost:3001/rss/top/Drama?limit=5
 
   // endpoinst dados enero
-
+/*
   @Get('list')
   getAnimes(@Query('quantity') quantity: number) {
     return this.rssService.findTrending(quantity);
   }
-
+  //actualizado findTrending
+  */
   @Get('list/:idAnilist')
   getAnime(@Param('idAnilist') idAnilist: number) {
     return this.rssService.findByAnilistId(idAnilist);
   }
-
+//actualizado findByAnilistId
   //poder ver BD
   @Get('stored')
   async getStoredAnimes() {
     return this.rssService.findAllStored();
-  }
+  } //este no se actualiza
   
   @Post('search/batch')
   searchAnimes(@Body() animes) {
     return this.rssService.searchArray(animes);
   }
+//no se actualiza
   
   @Post('search')
   searchAnime(
@@ -121,6 +122,7 @@ export class RssController {
   getAnimeRecommendations(@Param('idAnilist') idAnilist: number) {
   return this.rssService.getAnimeRecommendations(idAnilist);
   }
+//actualizado getAnimeRecommendations
 
   @Get('episodes/:idAnilist')
   getAllAnimeEpisodes(
@@ -132,6 +134,7 @@ export class RssController {
     const includeHevc = withHevc === 'true';
     return this.rssService.getAllAnimeEpisodes(idAnilist, includeTorrents, includeHevc);
   }
+//actualizado getAllAnimeEpisodes -> otra  query, me equivoqu
 
   @Get('episodes/:idAnilist/:episode')
   getEpisodeData(
