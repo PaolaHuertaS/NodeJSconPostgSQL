@@ -569,7 +569,7 @@ export class RssService {
       else if (month >= 6 && month <= 8) season = 'SUMMER';
       else season = 'FALL';
 
-      const response = await fetch('https://graphql.anilist.co', {
+      const response = await fetch(this.api_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -892,37 +892,82 @@ export class RssService {
     return await this.animeRepository.find();
   }
 
-  /*
-public async findTrending(quantity: number) {
-  try {
-    // 1. Obtener animes de la base de datos primero
-    const storedAnimes = await this.animeRepository.find({
-      take: quantity,
-      order: { idAnilist: 'DESC' }
-    });
+//método público asíncrono que busca animes trending
+//quantity es un parámetro opcional con valor por defecto de 10
+//number = 10 significa que si no se proporciona un valor, usará 10
+  public async findTrending(quantity: number = 10) {
+    try {
+      const storedAnimes = await this.animeRepository.find({
+        take: quantity,
+        order: { idAnilist: 'DESC' }
+      });
+  
+      if (storedAnimes.length >= quantity) {
+        console.log('Animes encontrados en DB:', storedAnimes.length);
+        return storedAnimes;
+      }
+  
+      //busca en anilist
+      const response = await fetch(this.api_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query_anime.anime_trending, 
+          variables: { 
+            perPage: quantity
+          }
+        })
+      });
+  //aqui mando a llamar la query, que es la que se llama anime_trending 
+      const data = await response.json();
+      const animes = data.data.Page.media;
+  
+      //guarda los nuevos animes
+      const savedAnimes = await Promise.all(
+        animes.map(async (animeData) => {
+          const existingAnime = await this.animeRepository.findOne({
+            where: { idAnilist: animeData.id }
+          });
+  
+          if (existingAnime) {
+            console.log('Anime ya existe en DB:', existingAnime.title.romaji);
+            return existingAnime;
+          }
 
-    if (storedAnimes.length >= quantity) {
-      console.log('Animes encontrados en DB:', storedAnimes.length);
-      return storedAnimes;
+          const anime = this.animeRepository.create({
+            idAnilist: animeData.id,
+            title: {
+              romaji: animeData.title.romaji,
+              english: animeData.title.english,
+              native: animeData.title.native
+            },
+            coverImage: animeData.coverImage,
+            status: animeData.status,
+            startDate: {
+              year: animeData.startDate?.year || new Date().getFullYear(),
+              month: animeData.startDate?.month || (new Date().getMonth() + 1),
+              day: animeData.startDate?.day || new Date().getDate() 
+            },
+            description: '',
+            genres: [],
+            episodes: 0,
+            synonyms: []
+          });
+  
+          const savedAnime = await this.animeRepository.save(anime);
+          console.log('Nuevo anime guardado en DB:', savedAnime.title.romaji);
+          return savedAnime;
+        })
+      );
+  
+      return savedAnimes;
+    } catch (error) {
+      console.error('Error en findTrending:', error);
+      return [];
     }
-
-    // 2. Si no hay suficientes, buscar en Anilist
-
-    const response = await fetch(this.api_url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: query_anime.anime_trending, 
-        variables: { perPage: quantity, season: null, year: null }
-      })
-    });
-
-    
-         
-}*/
-      
+  }   
 
 //obtener episodios especificos
 async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
@@ -1123,7 +1168,7 @@ async updateAnime(
 
 async getAnimeRecommendations(animeId: number) {
   try {
-    const response = await fetch('https://graphql.anilist.co', {
+    const response = await fetch(this.api_url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
