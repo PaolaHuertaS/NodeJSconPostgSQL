@@ -143,6 +143,7 @@ export class RssController {
   ) {
     return this.rssService.getEpisodeData(idAnilist, episode);
   }
+  //getEpisode data esta actualizado y con su query
 /*
   @Get('rss')
   getRssFeed(

@@ -126,5 +126,49 @@ export const query_anime = {
         }
       }
     }
+`,
+
+anime_episodio: `
+${graphqlAnimeClase.animeBase()}
+  query ($id: Int) {
+    Media(id: $id, type: ANIME) {
+      id
+      ...animeBase
+      episodes
+      status
+      description
+      nextAiringEpisode {
+        episode
+        airingAt
+      }
+    }
+  }
+`,
+
+//query para updateanime
+anime_actualizar: `
+${graphqlAnimeClase.animeBase()}
+  query ($id: Int) {
+    Media(id: $id, type: ANIME) {
+      ...animeBase
+      id
+      status
+      genres
+      format
+      seasonYear
+      coverImage {
+        extraLarge
+        medium
+        color
+      }
+      startDate {
+        year
+        month
+        day
+      }
+      synonyms
+    }
+  }
 `
+
 };
