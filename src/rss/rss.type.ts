@@ -53,7 +53,7 @@ export interface AnilistAnime {
   status: string;
   episodes: number;
   duration: number;
-  averageScore: number;
+  averageScore?: number;
   nextAiringEpisode?: {
     episode: number;
     airingAt: number;

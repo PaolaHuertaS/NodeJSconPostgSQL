@@ -44,21 +44,7 @@ export class RssController {
   return this.rssService.getSimilarAnimes(id);
   }
 //getSimilarAnimes actualizado 
-  @Get('anime/:id/stats')
-  async getAnimeStats(@Param('id') id: number) {
-  return this.rssService.getAnimeStats(id);
-  }
-
-  @Get('season/:season/:year') 
-  async getSeasonAnimes(@Param('season') season: string, @Param('year') year: number) {
-  return this.rssService.getSeasonAnimes(season, year);
-  }
-
-  @Get('calendar/upcoming')
-  async getUpcomingPremieres() {
-  return this.rssService.getUpcomingPremieres();
-  }
-
+ 
   @Get('top/:genre')
   async getTopAnimesByGenre(@Param('genre') genre: string, @Query('limit') limit: number = 10) {
   return this.rssService.getTopAnimesByGenre(genre, limit);
@@ -117,7 +103,7 @@ export class RssController {
     genre: searchParams.genre
   });
   }
-
+//search actualizado
   @Get('recommendations/:idAnilist')
   getAnimeRecommendations(@Param('idAnilist') idAnilist: number) {
   return this.rssService.getAnimeRecommendations(idAnilist);
@@ -155,8 +141,7 @@ export class RssController {
     return this.rssService.getRssFeed(page, perPage, includeHevc);
   }
 */
-  //endpoint d put, falta su get, actualizacion: 
-  
+  //actualizado el put
   @Put(':idAnilist')
   async updateAnime(
   @Param('idAnilist') idAnilist: number,

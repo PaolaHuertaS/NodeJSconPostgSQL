@@ -38,20 +38,20 @@ export class RssService {
         native: mediaData.title?.native || ''
       },
       description: mediaData.description,
-      descriptionTranslated: false,
-      season: mediaData.season,
-      seasonYear: mediaData.seasonYear,
-      format: mediaData.format,
+      descriptionTranslated: mediaData.descriptionTranslated,
+      season: mediaData.season ? String(mediaData.season) : null,
+      seasonYear: mediaData.seasonYear !== null ? Number(mediaData.seasonYear) : null,
+      format: mediaData.format !== null ? String(mediaData.format) : null,
       status: mediaData.status,
-      episodes: mediaData.episodes,
-      duration: mediaData.duration || '',
+      episodes: mediaData.episodes ? Number(mediaData.episodes) : null,
+      duration: mediaData.duration ? Number(mediaData.duration) : null,
       genres: mediaData.genres || [],
       coverImage: {
         extraLarge: mediaData.coverImage?.extraLarge || '',
         medium: mediaData.coverImage?.medium || '',
         color: mediaData.coverImage?.color || ''
       },
-      bannerImage: mediaData.bannerImage,
+      bannerImage: mediaData.bannerImage ? String(mediaData.bannerImage) : null,
       synonyms: mediaData.synonyms || [],
       startDate: mediaData.startDate 
         ? {
@@ -60,36 +60,43 @@ export class RssService {
             day: mediaData.startDate.day
           } 
         : null,
-      nextAiringEpisode: mediaData.nextAiringEpisode 
+      nextAiringEpisode: mediaData.nextAiringEpisode || "Sin conocimiento"
         ? {
-            airingAt: mediaData.nextAiringEpisode.airingAt,
-            episode: mediaData.nextAiringEpisode.episode
+            airingAt: mediaData.nextAiringEpisode?.airingAt || null,
+            episode: mediaData.nextAiringEpisode?.episode || null
           } 
-        : null
+          :null,
+          trailer: mediaData.trailer || null,
     };
   }
-
-  public async getAnimeDetailsFromAnilist(title: string): Promise<AnilistAnime> {
+//se pone promise seguido de partial y el nombre anime pq es asi como tenemos declarado el mapeoATypeorm, la funcion, y promise y partial son conceptos diferentes asi q deben enlazarse para q funcionen
+  public async getAnimeDetailsFromAnilist(title: string): Promise<Partial<Anime> | null> {
     try {
-      const response = await fetch(this.api_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          query: query_anime.anime_detalles,
-          variables: { search: title.trim() } //trim ayuda a eliminar espacios
-        })
-      });
+        const response = await fetch(this.api_url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                query: query_anime.anime_detalles,
+                variables: { search: title.trim() } // trim ayuda a eliminar espacios extra
+            })
+        });
 
-      const data = await response.json();
-      return data.data.Media;
+        const data = await response.json();
+
+        if (!data.data || !data.data.Media) {
+            throw new Error(`No se encontraron detalles para el anime: ${title}`);
+        }
+
+        //aplico mapeo
+        return this.mapeoAtypeorm(data.data.Media);
     } catch (error) {
-      this.logger.error('Error:', error);
-      return null;
+        this.logger.error(`Error al obtener detalles de ${title}:`, error);
+        return null;
     }
-  }
+}
 
   public async getSimilarAnimes(animeId: number): Promise<AnilistAnime[]> {
     try {
@@ -169,202 +176,6 @@ export class RssService {
         isHevc: false,
         hasNetflixSubs: false
       };
-    }
-  }
-
-  public async getUpcomingPremieres() {
-    // Query para obtener próximos estrenos
-    const query = `
-      query {
-        Page(page: 1, perPage: 25) {
-          media(
-            type: ANIME,
-            status: NOT_YET_RELEASED,   # Solo animes no estrenados
-            sort: START_DATE,           # Ordenar por fecha de estreno
-          ) {
-            id
-            title {
-              romaji
-              english
-              native
-            }
-            startDate {
-              year
-              month
-              day
-            }
-            coverImage {
-              large
-            }
-            genres
-            episodes          # Número de episodios planeados
-            format           # TV, MOVIE, OVA, etc.
-            studios {
-              nodes {
-                name        # Estudio de animación
-              }
-            }
-            source          # Origen (MANGA, LIGHT_NOVEL, etc.)
-            description     # Sinopsis
-          }
-        }
-      }
-    `;
-
-    try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
-      });
-
-      const data = await response.json();
-
-      // Organizar por mes
-      const premieresByMonth = data.data.Page.media.reduce((acc, anime) => {
-        const monthName = new Date(
-          anime.startDate.year,
-          anime.startDate.month - 1,
-          anime.startDate.day
-        ).toLocaleString('es-ES', { month: 'long' });
-
-        if (!acc[monthName]) {
-          acc[monthName] = [];
-        }
-
-        acc[monthName].push({
-          id: anime.id,
-          titulo: {
-            romaji: anime.title.romaji,
-            english: anime.title.english,
-            japones: anime.title.native
-          },
-          fechaEstreno: {
-            año: anime.startDate.year,
-            mes: anime.startDate.month,
-            dia: anime.startDate.day,
-          },
-          imagen: anime.coverImage.large,
-          generos: anime.genres,
-          episodios: anime.episodes || "Por confirmar",
-          formato: anime.format,
-          estudio: anime.studios.nodes[0]?.name || "Por confirmar",
-          origen: anime.source,
-          sinopsis: anime.description
-        });
-
-        return acc;
-      }, {});
-
-      return premieresByMonth;
-    } catch (error) {
-      console.error('Error obteniendo estrenos:', error);
-      return {};
-    }
-  }
-
-  public async getAnimeStats(animeId: number): Promise<any> {
-    // Query para obtener estadísticas detalladas
-    const query = `
-    query ($id: Int) {
-      Media (id: $id, type: ANIME) {
-        rankings {                       
-          rank                           # Posición
-          type                          
-          context                      # Contexto del ranking
-        }
-        stats {
-          scoreDistribution {          # Distribución de puntuaciones
-            score                     
-            amount                   # Cantidad de votos
-          }
-          statusDistribution {       # Estado de visualización
-            status                  
-            amount                 # Cantidad de usuarios
-          }
-        }
-        popularity                
-        favourites               # Cantidad de favoritos
-        trending                # Tendencia actual
-      }
-    }
-  `;
-
-    try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          variables: { id: animeId }
-        })
-      });
-
-      const data = await response.json();
-      // Organizar todas las estadísticas en un objeto
-      return {
-        rankings: data.data.Media.rankings || [],
-        stats: data.data.Media.stats || {},
-        popularity: data.data.Media.popularity,
-        favourites: data.data.Media.favourites,
-        trending: data.data.Media.trending
-      };
-    } catch (error) {
-      console.error('Error obteniendo estadísticas:', error);
-      return null;
-    }
-  }
-
-  public async getSeasonAnimes(season: string, year: number): Promise<AnilistAnime[]> {
-    // Query para obtener animes de una temporada específica
-    // Las temporadas son: WINTER, SPRING, SUMMER, FALL
-    const query = `
-    query ($season: MediaSeason, $year: Int) {
-      Page(page: 1, perPage: 10) {           # Limitar a 10 resultados
-        media(
-          season: $season,                    
-          seasonYear: $year,                  
-          type: ANIME,                        # Tipo de media
-          sort: POPULARITY_DESC               # Ordenar por popularidad
-        ) {
-          id
-          title {
-            romaji                           
-            english                          
-            native                           
-          }
-          genres                             
-          status                             
-          episodes                           
-          nextAiringEpisode {                
-            episode                          
-            airingAt                         
-          }
-        }
-      }
-    }
-  `;
-
-    try {
-      // Hacer la petición a Anilist
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          variables: {
-            season: season.toUpperCase(),      // Convertir a mayúsculas
-            year: year
-          }
-        })
-      });
-
-      const data = await response.json();
-      // Devolver los animes encontrados o array vacío si no hay
-      return data.data.Page.media || [];
-    } catch (error) {
-      console.error('Error obteniendo animes de temporada:', error);
-      return [];
     }
   }
 
@@ -1210,36 +1021,11 @@ public async search({
       };
     }
 
-    //mejora:búsqueda en Anilist solo si es necesario
-    const query = `
-      query ($search: String, $perPage: Int, $status: MediaStatus) {
-        Page(page: 1, perPage: $perPage) {
-          media(search: $search, type: ANIME, sort: POPULARITY_DESC, status: $status) {
-            id
-            title {
-              romaji
-              english
-              native
-            }
-            coverImage {
-              extraLarge
-            }
-            bannerImage
-            description
-            episodes
-            duration
-            status
-            genres
-          }
-        }
-      }
-    `;
-
-    const response = await fetch('https://graphql.anilist.co', {
+    const response = await fetch(this.api_url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query,
+        query: query_anime.anime_todo,
         variables: { 
           search: animeName,
           perPage: limitResult - storedAnimes.length, //mejora: ajustar cantidad a buscar
@@ -1336,29 +1122,44 @@ public async searchArray(animes: string[]) {
   }
 
 async updateAnime(idAnilist: number, updateData: Partial<Anime>) {
-    try {
-      let anime = await this.animeRepository.findOne({ where: { idAnilist } });
-  
-      if (!anime) {
-        const animeInfo = await this.fetchFromAnilist(query_anime.anime_actualizar, { id: idAnilist });
-  
-        if (!animeInfo?.data?.Media) {
-          throw new Error('No se encontró información del anime');
-        }
-  
-        const mappedAnimeData = this.mapeoAtypeorm(animeInfo.data.Media);
-        anime = this.animeRepository.create(mappedAnimeData);
-        anime = await this.animeRepository.save(anime);
+  try {
+    console.log(`Buscando anime con idAnilist: ${idAnilist}`);
+    let anime = await this.animeRepository.findOne({ where: { idAnilist } });
+    console.log(`Resultado de la búsqueda:`, anime);
+
+    if (!anime) {
+      console.log('No se encontró en la base de datos, buscando en anilist');
+      const animeInfo = await this.fetchFromAnilist(query_anime.anime_actualizar, { id: idAnilist });
+      console.log('Respuesta de Anilist:', animeInfo);
+
+      if (!animeInfo?.data?.Media) {
+        throw new Error('No se encontró información del anime en Anilist');
       }
-  
-      Object.assign(anime, updateData);
-  
-      const updatedAnime = await this.animeRepository.save(anime);
-      return updatedAnime;
-  
-    } catch (error) {
-      this.logger.error(`Error en actualizar el anime ${idAnilist}:`, error);
-      throw new Error(`Error en actualizar: ${error.message}`);
+
+      const mappedAnimeData = this.mapeoAtypeorm(animeInfo.data.Media);
+      console.log('Datos mapeados:', mappedAnimeData);
+
+      anime = this.animeRepository.create(mappedAnimeData);
+      anime = await this.animeRepository.save(anime);
+      console.log('Nuevo anime guardado:', anime);
     }
+
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === null || updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    Object.assign(anime, updateData);
+    console.log('Datos después de la actualización:', anime);
+
+    const updatedAnime = await this.animeRepository.save(anime);
+    console.log('Anime actualizado:', updatedAnime);
+
+    return updatedAnime;
+  } catch (error) {
+    this.logger.error(`Error en actualizar el anime ${idAnilist}:`, error);
+    throw new Error(`Error en actualizar: ${error.message}`);
   }
+}
 }

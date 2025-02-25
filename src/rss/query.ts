@@ -170,5 +170,29 @@ ${graphqlAnimeClase.animeBase()}
     }
   }
 `
-
+/*
+anime_buscar: `
+${graphqlAnimeClase.animeBase()}
+  query ($id: Int) {
+    Media(id: $id, type: ANIME) {
+      ...animeBase
+      id
+      status
+      genres
+      format
+      seasonYear
+      coverImage {
+        extraLarge
+        medium
+        color
+      }
+      startDate {
+        year
+        month
+        day
+      }
+      synonyms
+    }
+  }
+`*/
 };
