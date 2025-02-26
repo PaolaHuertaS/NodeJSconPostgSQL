@@ -85,47 +85,43 @@ export const query_anime = {
 `,
 
   anime_todo:  `
-    ${graphqlAnimeClase.animeBase()}
-    query ($id: Int) {
-      Media (id: $id, type: ANIME) {
-        duration
-        status
-        nextAiringEpisode {
-          episode
-          airingAt
-        }
-           startDate {
-            year
-             month
-              day
-        }
-           endDate {
-            year
-             month
-              day
-        }
-        status
+  ${graphqlAnimeClase.animeBase()}
+  query ($id: Int) {
+    Media (id: $id, type: ANIME) {
+      ...animeBase  
+      duration
+      status
+      nextAiringEpisode {
+        episode
+        airingAt
       }
-        rankings {
-         id
-          rank
-            type
-              context
+      startDate {
+        year
+        month
+        day
       }
-      characters(page: 1, perPage: 5) {
-        nodes {
+      endDate {
+        year
+        month
+        day
+      }
+      characters (page: 1, perPage: 5) {  
+        edges {  
+        role
+        node {
           id
           name {
             full
             native
-             }
+          }
           image {
-              large
-             }
-            role
+            large
+          }
         }
       }
-    }
+    } 
+  }
+}   
 `,
 
 anime_episodio: `
@@ -169,30 +165,31 @@ ${graphqlAnimeClase.animeBase()}
       synonyms
     }
   }
-`
-/*
-anime_buscar: `
-${graphqlAnimeClase.animeBase()}
-  query ($id: Int) {
-    Media(id: $id, type: ANIME) {
-      ...animeBase
-      id
-      status
-      genres
-      format
-      seasonYear
-      coverImage {
-        extraLarge
-        medium
-        color
+`,
+
+anime_topgenero: `
+query ($genre: String, $limit: Int) {
+      Page(page: 1, perPage: $limit) {
+        media(
+          genre: $genre,
+          type: ANIME,
+          sort: POPULARITY_DESC
+        ) {
+          id
+          title {
+            romaji
+            english
+            native
+          }
+          genres
+          description
+          averageScore
+          popularity
+          format
+          episodes
+          status
+        }
       }
-      startDate {
-        year
-        month
-        day
-      }
-      synonyms
     }
-  }
-`*/
+`
 };

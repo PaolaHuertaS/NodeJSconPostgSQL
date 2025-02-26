@@ -15,34 +15,33 @@ export class GraphQLAnime {
     return `
     fragment animeBase on Media {
       id
-      title {
-        romaji
-        english
-        native
-      }
-      coverImage {
-        large
-      }
-      bannerImage  
-      status
-      episodes
-      genres
-      description  
-      popularity      
-      season        
-      startDate {  
-        year
-        month
-        day
-      }
-    }`;
+        title {
+          romaji
+          english
+          native
+          }
+          coverImage {
+             large
+            }
+          bannerImage  
+          status
+          episodes
+          genres
+          description  
+          popularity      
+          season        
+          startDate {  
+                year
+                month
+                day
+  }
+}`;
   }
 }
 
-//Define un fragmento reusable 
+//Define un fragmento reusable
 //ID único del anime
 //diferentes títulos
-//Título en romaji 
+//Título en romaji
 //Título en inglés
 //Título original.. etc
-
