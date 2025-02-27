@@ -37,10 +37,3 @@ export class GraphQLAnime {
 }`;
   }
 }
-
-//Define un fragmento reusable
-//ID único del anime
-//diferentes títulos
-//Título en romaji
-//Título en inglés
-//Título original.. etc
