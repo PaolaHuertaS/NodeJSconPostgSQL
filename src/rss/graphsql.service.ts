@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { query_anime } from './query';
 
 //info a visitar: https://graphql.org/learn/mutations/
 

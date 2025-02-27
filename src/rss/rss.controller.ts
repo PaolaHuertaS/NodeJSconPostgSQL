@@ -88,7 +88,6 @@ export class RssController {
     return this.rssService.getEpisodeData(idAnilist, episode);
   }
 
-/*
   @Get('rss')
   getRssFeed(
   @Query('page') page: number = 1,
@@ -98,7 +97,6 @@ export class RssController {
     const includeHevc = withHevc === 'true';
     return this.rssService.getRssFeed(page, perPage, includeHevc);
   }
-*/
 
   @Put(':idAnilist')
   async updateAnime(

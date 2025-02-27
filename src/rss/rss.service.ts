@@ -7,6 +7,8 @@ import { Anime } from '../book/entities/rss.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Episode, ParsedAnimeInfo, EnhancedAnimeInfo, AnilistAnime, RssAnimeInfo, AnimeEpisodeDetails } from './rss.type';
 import { query_anime } from './query';
+import axios from 'axios';
+import * as xml2js from 'xml2js';
 const anitomyscript = require('anitomyscript');
 
 @Injectable()
@@ -283,42 +285,32 @@ export class RssService {
       return [];
     }
   }
-
-  async getEnhancedEpisodes(
-    season?: string,
-    status?: string,
-    format?: string
-  ): Promise<EnhancedAnimeInfo[]> {
-    try {
-      const episodes = await this.getLastEpisodes();
-      const enhancedEpisodes = await Promise.all(
-        episodes.map(async (episode) => {
-          const animeInfo = await this.searchAnilist(episode.info.title);
-          return {
-            anime: animeInfo,
-            episode: episode.info.episode,
-            torrent: {
-              link: episode.download.link,
-              size: episode.download.size
+       
+  async fetchFromAnilist(query: string, variables: any) {
+        try {
+            const response = await fetch(this.api_url, {
+              method: 'POST', 
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({ query, variables })
+            });
+        
+            const data = await response.json();
+        
+            if (!response.ok || data.errors) {
+              console.error('Error en la respuesta de AniList:', data.errors);
+              return null;
             }
-          };
-        })
-      );
-      return enhancedEpisodes.filter(Boolean);
-    } catch (error) {
-      this.logger.error('Error:', error);
-      return [];
-    }
-  }
-      
-   private async fetchFromAnilist(query: string, variables: any) {
-           const response = await fetch(this.api_url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, variables })
-          });
-          return response.json();
+        
+            return data;
+          } catch (error) {
+            console.error('Error al conectar con AniList:', error);
+            return null;
+          }
         }
+        
 
  private isCurrentSeason(airingAt: number): boolean {
   if (!airingAt) return false;
@@ -436,9 +428,6 @@ export class RssService {
     return await this.animeRepository.find();
   }
 
-//método público asíncrono que busca animes trending
-//quantity es un parámetro opcional con valor por defecto de 10
-//number = 10 significa que si no se proporciona un valor, usará 10
   public async findTrending(quantity: number = 10) {
     try {
       const storedAnimes = await this.animeRepository.find({
@@ -695,6 +684,30 @@ export class RssService {
     } catch (error) {
       console.error('Error getting recommendations:', error);
       return [];
+    }
+  }
+
+  async getRssFeed(page: number = 1, perPage: number = 10, withHevc: boolean): Promise<any> {
+    try {
+      
+      const response = await axios.get(this.RSS_URL);
+      const xmlData = response.data;
+
+      const parsedData = await xml2js.parseStringPromise(xmlData, { explicitArray: false });
+      const items = parsedData.rss.channel.item || [];
+      
+      let filteredItems = items;
+      if (withHevc) {
+        filteredItems = items.filter(item => item.title.includes('HEVC'));
+      }
+
+      const start = (page - 1) * perPage;
+      const paginatedItems = filteredItems.slice(start, start + perPage);
+      
+      return { page, perPage, total: filteredItems.length, results: paginatedItems };
+     
+    } catch (error) {
+      console.error("Error capturado en getRssFeed:", error);
     }
   }
 
