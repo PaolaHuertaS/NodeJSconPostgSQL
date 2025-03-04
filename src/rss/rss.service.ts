@@ -3,7 +3,7 @@ import { XMLParser } from 'fast-xml-parser';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Anime } from '../book/entities/rss.entity';
-import {  AnilistAnime } from './rss.type';
+import { AnilistAnime } from './rss.type';
 import { query_anime } from './query';
 import axios from 'axios';
 import * as xml2js from 'xml2js';
@@ -18,9 +18,9 @@ export class RssService {
 
   constructor(
     @InjectRepository(Anime)
-    private animeRepository: Repository<Anime>, 
+    private animeRepository: Repository<Anime>,
     private readonly logger: Logger = new Logger(RssService.name)
-  ) {}
+  ) { }
 
   private readonly RSS_URL = 'https://www.erai-raws.info/episodes/feed/?res=1080p&type=torrent&subs%5B0%5D=mx&token=eb4108a77108d2c5c14db7202458aacb';
   private readonly api_url = 'https://graphql.anilist.co';
@@ -28,7 +28,7 @@ export class RssService {
   private mapeoAtypeorm(mediaData: any): Partial<Anime> {
     return {
       idAnilist: mediaData.id,
-      idMal: mediaData.idMal ? Number(mediaData.idMal): null,
+      idMal: mediaData.idMal ? Number(mediaData.idMal) : null,
       title: {
         romaji: mediaData.title?.romaji || '',
         english: mediaData.title?.english || '',
@@ -50,49 +50,49 @@ export class RssService {
       },
       bannerImage: mediaData.bannerImage ? String(mediaData.bannerImage) : null,
       synonyms: mediaData.synonyms || [],
-      startDate: mediaData.startDate 
+      startDate: mediaData.startDate
         ? {
-            year: mediaData.startDate.year,
-            month: mediaData.startDate.month,
-            day: mediaData.startDate.day
-          } 
+          year: mediaData.startDate.year,
+          month: mediaData.startDate.month,
+          day: mediaData.startDate.day
+        }
         : null,
       nextAiringEpisode: mediaData.nextAiringEpisode || "Sin conocimiento"
         ? {
-            airingAt: mediaData.nextAiringEpisode?.airingAt || null,
-            episode: mediaData.nextAiringEpisode?.episode || null
-          } 
-          :null,
-          trailer: mediaData.trailer || null,
+          airingAt: mediaData.nextAiringEpisode?.airingAt || null,
+          episode: mediaData.nextAiringEpisode?.episode || null
+        }
+        : null,
+      trailer: mediaData.trailer || null,
     };
   }
-//se pone promise seguido de partial y el nombre anime pq es asi como tenemos declarado el mapeoATypeorm, la funcion, y promise y partial son conceptos diferentes asi q deben enlazarse para q funcionen
+  //se pone promise seguido de partial y el nombre anime pq es asi como tenemos declarado el mapeoATypeorm, la funcion, y promise y partial son conceptos diferentes asi q deben enlazarse para q funcionen
   public async getAnimeDetailsFromAnilist(title: string): Promise<Partial<Anime> | null> {
     try {
-        const response = await fetch(this.api_url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-                query: query_anime.anime_detalles,
-                variables: { search: title.trim() } // trim ayuda a eliminar espacios extra
-            })
-        });
+      const response = await fetch(this.api_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query_anime.anime_detalles,
+          variables: { search: title.trim() } // trim ayuda a eliminar espacios extra
+        })
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (!data.data || !data.data.Media) {
-            throw new Error(`No se encontraron detalles para el anime: ${title}`);
-        }
-        //aplico mapeo
-        return this.mapeoAtypeorm(data.data.Media);
+      if (!data.data || !data.data.Media) {
+        throw new Error(`No se encontraron detalles para el anime: ${title}`);
+      }
+      //aplico mapeo
+      return this.mapeoAtypeorm(data.data.Media);
     } catch (error) {
-        this.logger.error(`Error al obtener detalles de ${title}:`, error);
-        return null;
+      this.logger.error(`Error al obtener detalles de ${title}:`, error);
+      return null;
     }
-}
+  }
 
   public async getSimilarAnimes(animeId: number): Promise<AnilistAnime[]> {
     try {
@@ -103,7 +103,7 @@ export class RssService {
         },
         // El body incluye la query y las variables necesarias
         body: JSON.stringify({
-          query: query_anime.anime_recomendaciones, 
+          query: query_anime.anime_recomendaciones,
           variables: { id: animeId }  // Pasamos el ID como variable
         })
       });
@@ -156,32 +156,32 @@ export class RssService {
       return [];
     }
   }
- 
+
   async fetchFromAnilist(query: string, variables: any) {
-        try {
-            const response = await fetch(this.api_url, {
-              method: 'POST', 
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              body: JSON.stringify({ query, variables })
-            });
-        
-            const data = await response.json();
-        
-            if (!response.ok || data.errors) {
-              console.error('Error en la respuesta de AniList:', data.errors);
-              return null;
-            }
-        
-            return data;
-          } catch (error) {
-            console.error('Error al conectar con AniList:', error);
-            return null;
-          }
-        }
-        
+    try {
+      const response = await fetch(this.api_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ query, variables })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.errors) {
+        console.error('Error en la respuesta de AniList:', data.errors);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error al conectar con AniList:', error);
+      return null;
+    }
+  }
+
   public async findByAnilistId(idAnilist: number) {
     try {
       // Primero buscar en la base de datos
@@ -201,7 +201,7 @@ export class RssService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: query_anime.anime_findanilist, 
+          query: query_anime.anime_findanilist,
           variables: { id: idAnilist }
         })
       });
@@ -246,12 +246,12 @@ export class RssService {
         take: quantity,
         order: { idAnilist: 'DESC' }
       });
-  
+
       if (storedAnimes.length >= quantity) {
         console.log('Animes encontrados en DB:', storedAnimes.length);
         return storedAnimes;
       }
-  
+
       //busca en anilist
       const response = await fetch(this.api_url, {
         method: 'POST',
@@ -259,23 +259,23 @@ export class RssService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: query_anime.anime_trending, 
-          variables: { 
+          query: query_anime.anime_trending,
+          variables: {
             perPage: quantity
           }
         })
       });
-  //aqui mando a llamar la query, que es la que se llama anime_trending 
+      //aqui mando a llamar la query, que es la que se llama anime_trending 
       const data = await response.json();
       const animes = data.data.Page.media;
-  
+
       //guarda los nuevos animes
       const savedAnimes = await Promise.all(
         animes.map(async (animeData) => {
           const existingAnime = await this.animeRepository.findOne({
             where: { idAnilist: animeData.id }
           });
-  
+
           if (existingAnime) {
             console.log('Anime ya existe en DB:', existingAnime.title.romaji);
             return existingAnime;
@@ -293,110 +293,79 @@ export class RssService {
             startDate: {
               year: animeData.startDate?.year || new Date().getFullYear(),
               month: animeData.startDate?.month || (new Date().getMonth() + 1),
-              day: animeData.startDate?.day || new Date().getDate() 
+              day: animeData.startDate?.day || new Date().getDate()
             },
             description: '',
             genres: [],
             episodes: 0,
             synonyms: []
           });
-  
+
           const savedAnime = await this.animeRepository.save(anime);
           console.log('Nuevo anime guardado en DB:', savedAnime.title.romaji);
           return savedAnime;
         })
       );
-  
+
       return savedAnimes;
     } catch (error) {
       console.error('Error en findTrending:', error);
       return [];
     }
-  }   
+  }
 
-  async getEpisodeData(idAnilist: number, episode: string): Promise<any> {    
+  async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
     try {
-      console.log(`Buscando información del anime ID: ${idAnilist}, Episodio: ${episode}`);
-      
-      const animeInfo = await this.fetchFromAnilist(query_anime.anime_episodio, { id: idAnilist });
-  
-      if (!animeInfo || !animeInfo.data || !animeInfo.data.Media) {
-        console.warn("No se encontró información del anime en AniList.");
-        return { animeInfo: null, episodeData: null, error: "No se encontró información del anime." };
-      }
-  
-      console.log(`Anime encontrado: ${animeInfo.data.Media.title.romaji}`);
-
+      console.log(`Buscando episodio ${episode}`);
       const rssResponse = await fetch(this.RSS_URL);
       const xmlData = await rssResponse.text();
-      console.log(`Respuesta del RSS:`, xmlData);
       const rssData = this.parser.parse(xmlData);
       const rssItems = rssData.rss?.channel?.item || [];
-  
-      console.log(`Total de episodios en RSS: ${rssItems.length}`);
-      const normalizeTitle = (title: string) => title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      const animeTitleLower = normalizeTitle(animeInfo.data.Media.title.romaji);
-  
       const episodeInfo = rssItems.find(item => {
-        const titleLower = normalizeTitle(item.title);
-        return titleLower.includes(animeTitleLower) && titleLower.includes(`episode${episode}`);
-      });
-  
+        const animeMatch = item.link.includes(idAnilist.toString());
+        return animeMatch;
+    });  
       if (!episodeInfo) {
-        console.warn(`No se encontró el episodio ${episode} en el RSS.`);
-      } else {
-        console.log(`Episodio encontrado en RSS: ${episodeInfo.title}`);
+        console.warn(`No se encontró el episodio ${episode}.`);
+        return { error: `Episodio ${episode} no encontrado` };
       }
-  
-      let parsedInfo = null;
-      if (episodeInfo) {
-        try {
-          parsedInfo = await anitomyscript(episodeInfo.title);
-          console.log(`Información parseada con anitomyscript:`, parsedInfo);
-        } catch (parseError) {
-          console.warn(`Error al parsear título con anitomyscript:`, parseError);
-        }
-      }
-  
-      return {
-        animeInfo: animeInfo.data.Media,
-        episodeData: {
-          title: `${animeInfo.data.Media.title.romaji} - Episode ${episode}`,
-          parsedInfo: parsedInfo ? {
-            anime_title: parsedInfo.anime_title,
-            episode_number: parsedInfo.episode_number,
-            video_resolution: parsedInfo.video_resolution,
-            release_group: parsedInfo.release_group,
-            subtitles: parsedInfo.subtitles,
-            file_type: parsedInfo.file_type,
-            audio_term: parsedInfo.audio_term
-          } : null,
-          link: episodeInfo?.link || null,
-          size: episodeInfo?.['erai:size'] || 'Unknown',
-          pubDate: episodeInfo?.pubDate || null,
-          resolution: parsedInfo?.video_resolution || '1080p',
-          subtitles: parsedInfo?.subtitles ? `[${parsedInfo.subtitles.join('][')}]` : '[us][mx][es]',
-          episodeNumber: parseInt(episode),
-          available: !!episodeInfo,
-          status: parseInt(episode) > 1122 ? 'UPCOMING' : 'RELEASED'
-        }
+
+      const anidbEid = parseInt(episodeInfo["erai:anidbEid"]) || null;
+      const length = parseInt(episodeInfo["erai:length"]) || null;
+      const airdate = episodeInfo.pubDate || null;
+      const rating = episodeInfo["erai:rating"] || null;
+      const title = {
+          ja: episodeInfo["erai:title-ja"] || null,
+          en: episodeInfo["erai:title-en"] || episodeInfo.title || null,
+          de: episodeInfo["erai:title-de"] || null,
+          fr: episodeInfo["erai:title-fr"] || null,
+          ar: episodeInfo["erai:title-ar"] || null,
+          "x-jat": episodeInfo["erai:title-x-jat"] || null
       };
-  
+      const summary = episodeInfo.description ? episodeInfo.description.replace(/<[^>]+>/g, '') : null;
+      return {
+          episode: episode,
+          anidbEid: anidbEid,
+          length: length,
+          airdate: airdate,
+          rating: rating,
+          title: title,
+          summary: summary
+      };
     } catch (error) {
-      console.error(`Error obteniendo información del episodio ${episode} para el anime ${idAnilist}:`, error);
-      return {  
-      }
+      console.error("Error obteniendo datos del episodio:", error);
+      return { error: "Error obteniendo datos del episodio." };
     }
-  }  
+  }
 
   async getAllAnimeEpisodes(
     idAnilist: number,
     includeTorrents: boolean,
-    includeHevc: boolean 
+    includeHevc: boolean
   ): Promise<any> {
     try {
       const animeInfo = await this.fetchFromAnilist(query_anime.anime_todo, { id: idAnilist });
-  
+
       if (!animeInfo || !animeInfo.data || !animeInfo.data.Media) {
         this.logger.error(`No se encontró información del anime en AniList para ID: ${idAnilist}`);
         return {
@@ -411,12 +380,12 @@ export class RssService {
         const xmlData = await rssResponse.text();
         const rssData = this.parser.parse(xmlData);
         const episodes = rssData.rss?.channel?.item || [];
-  
+
         const torrentEpisodes = episodes
           .filter(item => {
             const titleLower = item.title.toLowerCase();
             return titleLower.includes(animeData.title.romaji.toLowerCase()) &&
-                   (includeHevc || !titleLower.includes('hevc'));
+              (includeHevc || !titleLower.includes('hevc'));
           })
           .map(item => ({
             title: item.title,
@@ -424,18 +393,18 @@ export class RssService {
             size: item['erai:size'] || 'Unknown',
             pubDate: item.pubDate || null
           }));
-  
+
         return {
           animeInfo: animeData,
           episodes: torrentEpisodes
         };
       }
-  
+
       return {
         animeInfo: animeData,
         episodes: []
       };
-  
+
     } catch (error) {
       this.logger.error(`Error obteniendo episodios para el anime ${idAnilist}:`, error);
       return {
@@ -445,7 +414,7 @@ export class RssService {
       };
     }
   }
-  
+
   public async getAnimeRecommendations(animeId: number): Promise<AnilistAnime[]> {
     try {
       const baseAnimeResponse = await fetch(this.api_url, {
@@ -462,10 +431,10 @@ export class RssService {
           variables: { id: animeId }
         })
       }); //query para encontrar solo por generos
-  
+
       const baseAnimeData = await baseAnimeResponse.json();
       const baseGenres = baseAnimeData.data.Media.genres;
-  
+
       const response = await fetch(this.api_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -474,13 +443,13 @@ export class RssService {
           variables: { id: animeId }
         })
       });
-  
+
       const data = await response.json();
       const recommendations = data.data?.Media?.recommendations?.nodes || [];
-  //filtrado para que solo devuelva generos iguales
-      const exactGenreMatches = recommendations.filter(node => 
-        node.mediaRecommendation.genres.length === baseGenres.length && 
-        node.mediaRecommendation.genres.every(genre => 
+      //filtrado para que solo devuelva generos iguales
+      const exactGenreMatches = recommendations.filter(node =>
+        node.mediaRecommendation.genres.length === baseGenres.length &&
+        node.mediaRecommendation.genres.every(genre =>
           baseGenres.includes(genre)
         )
       ).map(node => node.mediaRecommendation);
@@ -492,7 +461,7 @@ export class RssService {
       return recommendations
         .map(node => node.mediaRecommendation)
         .slice(0, 10);
-  
+
     } catch (error) {
       console.error('Error getting recommendations:', error);
       return [];
@@ -501,13 +470,13 @@ export class RssService {
 
   async getRssFeed(page: number = 1, perPage: number = 10, withHevc: boolean): Promise<any> {
     try {
-      
+
       const response = await axios.get(this.RSS_URL);
       const xmlData = response.data;
 
       const parsedData = await xml2js.parseStringPromise(xmlData, { explicitArray: false });
       const items = parsedData.rss.channel.item || [];
-      
+
       let filteredItems = items;
       if (withHevc) {
         filteredItems = items.filter(item => item.title.includes('HEVC'));
@@ -515,21 +484,21 @@ export class RssService {
 
       const start = (page - 1) * perPage;
       const paginatedItems = filteredItems.slice(start, start + perPage);
-      
+
       return { page, perPage, total: filteredItems.length, results: paginatedItems };
-     
+
     } catch (error) {
       console.error("Error capturado en getRssFeed:", error);
     }
   }
 
-  public async search({ 
-    animeName, 
-    limitResult = 10, 
+  public async search({
+    animeName,
+    limitResult = 10,
     status,
     page = 1,
     genre
-  }: { 
+  }: {
     animeName: string;
     limitResult?: number;
     status?: string;
@@ -540,9 +509,9 @@ export class RssService {
       const pageNum = Number(page) || 1;
       const limitNum = Number(limitResult) || 10;
       const skip = (pageNum - 1) * limitNum;
-  
+
       console.log('Valores de paginación:', { pageNum, limitNum, skip });
-  
+
       const queryBuilder = this.animeRepository
         .createQueryBuilder('anime')
         .where(`anime.title->>'romaji' ILIKE :name OR anime.title->>'english' ILIKE :name`, {
@@ -551,7 +520,7 @@ export class RssService {
       if (genre) {
         queryBuilder.andWhere(':genre = ANY(anime.genres)', { genre });
       }
-  
+
       if (status) {
         queryBuilder.andWhere('anime.status = :status', { status: status.toUpperCase() });
       }
@@ -561,9 +530,9 @@ export class RssService {
         .skip(skip)
         .take(limitNum)
         .getMany();
-      
+
       console.log(`Animes encontrados en DB para "${animeName}":`, storedAnimes.length);
-  
+
       if (storedAnimes.length >= limitNum) {
         return {
           data: storedAnimes,
@@ -581,7 +550,7 @@ export class RssService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: query_anime.anime_todo,
-          variables: { 
+          variables: {
             search: animeName,
             perPage: limitNum - storedAnimes.length,
             status: status?.toUpperCase(),
@@ -589,10 +558,10 @@ export class RssService {
           }
         })
       });
-  
+
       const data = await response.json();
       const animes = data.data?.Page?.media || [];
-  
+
       // mapeoAtypeorm
       const newAnimes = await Promise.all(
         animes.map(async (animeData) => {
@@ -601,24 +570,24 @@ export class RssService {
             .createQueryBuilder('anime')
             .where('anime.idAnilist = :id', { id: animeData.id })
             .getOne();
-  
+
           if (existingAnime) {
             console.log('Anime ya existe en DB:', existingAnime.title.romaji);
             return existingAnime;
           }
-  
+
           // Usar mapeoAtypeorm para convertir los datos al formato de la entidad
           const mappedAnimeData = this.mapeoAtypeorm(animeData);
-          
+
           // Crear y guardar la nueva entidad
           const anime = this.animeRepository.create(mappedAnimeData);
           const savedAnime = await this.animeRepository.save(anime);
-          
+
           console.log('Nuevo anime guardado en DB:', savedAnime.title.romaji);
           return savedAnime;
         })
       );
-  
+
       // Combinar resultados de DB y nuevos
       return {
         data: [...storedAnimes, ...newAnimes],
@@ -640,68 +609,69 @@ export class RssService {
           totalPages: 0
         }
       };
-    }}
-
-public async searchArray(animes: string[]) {
-  try {
-    const results = await Promise.all(
-      animes.map(animeName => 
-        this.search({ 
-          animeName, 
-          limitResult: 1, // Solo el mejor resultado para cada uno
-          status: undefined 
-        })
-      )
-    );
-
-    return results
-      .flat()
-      .filter(Boolean);
-  } catch (error) {
-    console.error('Error en búsqueda por lote:', error);
-    return [];
     }
   }
 
-async updateAnime(idAnilist: number, updateData: Partial<Anime>) {
-  try {
-    console.log(`Buscando anime con idAnilist: ${idAnilist}`);
-    let anime = await this.animeRepository.findOne({ where: { idAnilist } });
-    console.log(`Resultado de la búsqueda:`, anime);
+  public async searchArray(animes: string[]) {
+    try {
+      const results = await Promise.all(
+        animes.map(animeName =>
+          this.search({
+            animeName,
+            limitResult: 1, // Solo el mejor resultado para cada uno
+            status: undefined
+          })
+        )
+      );
 
-    if (!anime) {
-      console.log('No se encontró en la base de datos, buscando en anilist');
-      const animeInfo = await this.fetchFromAnilist(query_anime.anime_actualizar, { id: idAnilist });
-      console.log('Respuesta de Anilist:', animeInfo);
-
-      if (!animeInfo?.data?.Media) {
-        throw new Error('No se encontró información del anime en Anilist');
-      }
-
-      const mappedAnimeData = this.mapeoAtypeorm(animeInfo.data.Media);
-      console.log('Datos mapeados:', mappedAnimeData);
-
-      anime = this.animeRepository.create(mappedAnimeData);
-      anime = await this.animeRepository.save(anime);
-      console.log('Nuevo anime guardado:', anime);
-    }
-
-    Object.keys(updateData).forEach((key) => {
-      if (updateData[key] === null || updateData[key] === undefined) {
-        delete updateData[key];
-      }
-    });
-
-    Object.assign(anime, updateData);
-    console.log('Datos después de la actualización:', anime);
-
-    const updatedAnime = await this.animeRepository.save(anime);
-    console.log('Anime actualizado:', updatedAnime);
-
-    return updatedAnime;
+      return results
+        .flat()
+        .filter(Boolean);
     } catch (error) {
-    this.logger.error(`Error en actualizar el anime ${idAnilist}:`, error);
-    throw new Error(`Error en actualizar: ${error.message}`);
+      console.error('Error en búsqueda por lote:', error);
+      return [];
+    }
+  }
+
+  async updateAnime(idAnilist: number, updateData: Partial<Anime>) {
+    try {
+      console.log(`Buscando anime con idAnilist: ${idAnilist}`);
+      let anime = await this.animeRepository.findOne({ where: { idAnilist } });
+      console.log(`Resultado de la búsqueda:`, anime);
+
+      if (!anime) {
+        console.log('No se encontró en la base de datos, buscando en anilist');
+        const animeInfo = await this.fetchFromAnilist(query_anime.anime_actualizar, { id: idAnilist });
+        console.log('Respuesta de Anilist:', animeInfo);
+
+        if (!animeInfo?.data?.Media) {
+          throw new Error('No se encontró información del anime en Anilist');
+        }
+
+        const mappedAnimeData = this.mapeoAtypeorm(animeInfo.data.Media);
+        console.log('Datos mapeados:', mappedAnimeData);
+
+        anime = this.animeRepository.create(mappedAnimeData);
+        anime = await this.animeRepository.save(anime);
+        console.log('Nuevo anime guardado:', anime);
+      }
+
+      Object.keys(updateData).forEach((key) => {
+        if (updateData[key] === null || updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+
+      Object.assign(anime, updateData);
+      console.log('Datos después de la actualización:', anime);
+
+      const updatedAnime = await this.animeRepository.save(anime);
+      console.log('Anime actualizado:', updatedAnime);
+
+      return updatedAnime;
+    } catch (error) {
+      this.logger.error(`Error en actualizar el anime ${idAnilist}:`, error);
+      throw new Error(`Error en actualizar: ${error.message}`);
     }
   }
 }
