@@ -5,7 +5,7 @@ import { Anime } from 'src/book/entities/rss.entity';
 @Controller('anime')
 export class RssController {
   constructor(private readonly rssService: RssService) { }
-
+/*
   @Get('details/:title')
   async getAnimeDetails(@Param('title') title: string) {
     const decodedTitle = decodeURIComponent(title);
@@ -79,7 +79,7 @@ export class RssController {
     const includeHevc = withHevc === 'true';
     return this.rssService.getAllAnimeEpisodes(idAnilist, includeTorrents, includeHevc);
   }
-
+*/
   @Get('episodes/:idAnilist/:episode')
   getEpisodeData(
     @Param('idAnilist') idAnilist: number,
@@ -87,7 +87,7 @@ export class RssController {
   ) {
     return this.rssService.getEpisodeData(idAnilist, episode);
   }
-
+/*
   @Get('rss')
   getRssFeed(
   @Query('page') page: number = 1,
@@ -104,5 +104,5 @@ export class RssController {
   @Body() updateAnimeDto: Partial<Anime>
    ) {
   return this.rssService.updateAnime(idAnilist, updateAnimeDto);
-   }
+   }*/
 }
