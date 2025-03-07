@@ -111,5 +111,59 @@ export class RssService {
     }
   }
 
-  
+  buildTorrentInfo(episodeInfo: any, episodeNumber: number) {
+    if (!episodeInfo) return null;
+    return {
+      title: episodeInfo.title || null,
+      link: episodeInfo.link || null,
+      pubDate: episodeInfo.pubDate || null,
+      resolution: episodeInfo["erai:resolution"] || "1080p",
+      linkType: "Torrent",
+      size: episodeInfo["erai:size"] || null,
+      infoHash: episodeInfo.infoHash || null,
+      subtitles: episodeInfo["erai:subtitles"] || null,
+      category: "[Airing]",
+      episode: episodeNumber,
+      isHevc: (episodeInfo.title || "").toLowerCase().includes("hevc"),
+      hasNetflixSubs: (episodeInfo.title || "").toLowerCase().includes("netflix")
+    };
+  }
+   
+  async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
+    try {
+      const episodeNumber = parseInt(episode);
+      const animeInfo = await this.fetchAnimeInfo(idAnilist);
+      if (!animeInfo) {
+        throw new Error(`No se encontró información del anime para ID: ${idAnilist}`);
+      }
+ 
+      const [anizipData, rssData, nyaaTorrents] = await Promise.all([
+        this.fetchAnizipData(idAnilist, episode).catch(() => null),
+        this.fetchRssData(this.RSS_URL, animeInfo.title.romaji, episodeNumber).catch(() => null),
+        this.fetchNyaaTorrents(animeInfo.title.romaji, episodeNumber).catch(() => [])
+      ]);
+
+      return {
+        episode: episode,
+        anidbEid: anizipData?.anidbEid || (rssData ? parseInt(rssData["erai:anidbEid"]) : null) || null,
+        length: anizipData?.length || (rssData ? parseInt(rssData["erai:length"]) : null) || animeInfo.duration || null,
+        airdate: anizipData?.airdate || (rssData ? rssData.pubDate : null) || null,
+        rating: anizipData?.rating || (rssData ? rssData["erai:rating"] : null) || null,
+        title: {
+          ja: anizipData?.title?.ja || (rssData ? rssData["erai:title-ja"] : null) || null,
+          en: anizipData?.title?.en || (rssData ? rssData["erai:title-en"] : null) || (rssData ? rssData.title : null) || null,
+          de: anizipData?.title?.de || null,
+          fr: anizipData?.title?.fr || null,
+          ar: anizipData?.title?.ar || null,
+          "x-jat": anizipData?.title?.["x-jat"] || (rssData ? rssData["erai:title-x-jat"] : null) || null
+        },
+        summary: anizipData?.summary || (rssData && rssData.description ? rssData.description.replace(/<[^>]+>/g, '') : null) || null
+      };
+    } catch (error) {
+      return { 
+        error: "Error obteniendo datos del episodio.",
+        message: error.message
+      };
+    }
+  }
 }
