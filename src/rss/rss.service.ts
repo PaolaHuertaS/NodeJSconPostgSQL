@@ -128,6 +128,64 @@ export class RssService {
       hasNetflixSubs: (episodeInfo.title || "").toLowerCase().includes("netflix")
     };
   }
+
+  async getAllAnimeEpisodes(
+    idAnilist: number,
+    includeTorrents: boolean = false,
+    includeHevc: boolean = false
+  ): Promise<any> {
+    try {
+      const animeInfo = await this.fetchAnimeInfo(idAnilist);
+  
+      const anizipData = await this.fetchAnizipData(idAnilist, "all").catch(() => null);
+      const episodes = Object.keys(anizipData.episodes).map(episode => {
+        const episodeData = anizipData.episodes[episode];
+ 
+        let torrents = null;
+        if (includeTorrents) {
+          torrents = this.fetchNyaaTorrents(animeInfo.title.romaji, parseInt(episode))
+            .then(torrents => torrents.filter(torrent => {
+              if (includeHevc) {
+                return torrent.title.toLowerCase().includes("hevc");
+              }
+              return true;
+            }))
+            .catch(() => []);
+        }
+  
+        return {
+          tvdbShowId: episodeData.tvdbShowId || null,
+          tvdbId: episodeData.tvdbId || null,
+          seasonNumber: episodeData.seasonNumber || 1,
+          episodeNumber: episodeData.episodeNumber || null,
+          absoluteEpisodeNumber: episodeData.absoluteEpisodeNumber || null,
+          episode: episode,
+          anidbEid: episodeData.anidbEid || null,
+          airDate: episodeData.airDate || null,
+          airDateUtc: episodeData.airDateUtc || null,
+          runtime: episodeData.runtime || null,
+          length: episodeData.length || null,
+          airdate: episodeData.airdate || null,
+          title: {
+            ja: episodeData.title?.ja || null,
+            en: episodeData.title?.en || null,
+            "x-jat": episodeData.title?.["x-jat"] || null
+          },
+          image: episodeData.image || null,
+          rating: episodeData.rating || null,
+          finaleType: episode === Object.keys(anizipData.episodes).length.toString() ? "final" : null,
+          torrents: includeTorrents ? torrents : null
+        };
+      });
+  
+      return { episodes };
+    } catch (error) {
+      return { 
+        error: "Error obteniendo todos los episodios.",
+        message: error.message
+      };
+    }
+  }
    
   async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
     try {
@@ -144,11 +202,18 @@ export class RssService {
       ]);
 
       return {
+        tvdbShowId: anizipData?.tvdbShowId || null,
+        tvdbId: anizipData?.tvdbId || null,
+        seasonNumber: anizipData?.seasonNumber || 1,
+        episodeNumber,
+        absoluteEpisodeNumber: anizipData?.absoluteEpisodeNumber || episodeNumber,
         episode: episode,
         anidbEid: anizipData?.anidbEid || (rssData ? parseInt(rssData["erai:anidbEid"]) : null) || null,
         length: anizipData?.length || (rssData ? parseInt(rssData["erai:length"]) : null) || animeInfo.duration || null,
+        runtime: anizipData?.runtime || animeInfo.duration || null,
+        airDate: anizipData?.airDate || (rssData ? rssData.pubDate : null) || null,
+        airDateUtc: anizipData?.airDateUtc || (rssData ? rssData.pubDate : null) || null,
         airdate: anizipData?.airdate || (rssData ? rssData.pubDate : null) || null,
-        rating: anizipData?.rating || (rssData ? rssData["erai:rating"] : null) || null,
         title: {
           ja: anizipData?.title?.ja || (rssData ? rssData["erai:title-ja"] : null) || null,
           en: anizipData?.title?.en || (rssData ? rssData["erai:title-en"] : null) || (rssData ? rssData.title : null) || null,
@@ -157,7 +222,10 @@ export class RssService {
           ar: anizipData?.title?.ar || null,
           "x-jat": anizipData?.title?.["x-jat"] || (rssData ? rssData["erai:title-x-jat"] : null) || null
         },
-        summary: anizipData?.summary || (rssData && rssData.description ? rssData.description.replace(/<[^>]+>/g, '') : null) || null
+        overview: anizipData?.overview || (rssData && rssData.description ? rssData.description.replace(/<[^>]+>/g, '') : null) || null,
+        summary: anizipData?.summary || (rssData && rssData.description ? rssData.description.replace(/<[^>]+>/g, '') : null) || null,
+        image: anizipData?.image || (rssData ? rssData.image : null) || null,
+        rating: anizipData?.rating || (rssData ? rssData["erai:rating"] : null) || null
       };
     } catch (error) {
       return { 

@@ -1,29 +1,12 @@
 import { Controller, Get, Param, Query, Post, Body, Put } from '@nestjs/common';
 import { RssService } from './rss.service';
-import { Anime } from 'src/book/entities/rss.entity';
 
 @Controller('anime')
 export class RssController {
   constructor(private readonly rssService: RssService) { }
 /*
-  @Get('details/:title')
-  async getAnimeDetails(@Param('title') title: string) {
-    const decodedTitle = decodeURIComponent(title);
-    return this.rssService.getAnimeDetailsFromAnilist(title);
-  }
-
-  @Get('similar/:id')
-  async getSimilarAnimes(@Param('id') id: number) {
-  return this.rssService.getSimilarAnimes(id);
-  }
-
-  @Get('top/:genre')
-  async getTopAnimesByGenre(@Param('genre') genre: string, @Query('limit') limit: number = 10) {
-  return this.rssService.getTopAnimesByGenre(genre, limit);
-}
-
   @Get('list')
-  getAnimes(@Query('quantity') quantity: number) {
+    getAnimes(@Query('quantity') quantity: number) {
     return this.rssService.findTrending(quantity);
   }
 
@@ -69,6 +52,7 @@ export class RssController {
   return this.rssService.getAnimeRecommendations(idAnilist);
   }
 
+ */ 
   @Get('episodes/:idAnilist')
   getAllAnimeEpisodes(
     @Param('idAnilist') idAnilist: number,
@@ -79,7 +63,7 @@ export class RssController {
     const includeHevc = withHevc === 'true';
     return this.rssService.getAllAnimeEpisodes(idAnilist, includeTorrents, includeHevc);
   }
-*/
+
   @Get('episodes/:idAnilist/:episode')
   getEpisodeData(
     @Param('idAnilist') idAnilist: number,
