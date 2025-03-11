@@ -14,11 +14,6 @@ export class RssController {
   getAnime(@Param('idAnilist') idAnilist: number) {
     return this.rssService.findByAnilistId(idAnilist);
   }
-
-  @Get('stored')
-  async getStoredAnimes() {
-    return this.rssService.findAllStored();
-  } 
   
   @Post('search/batch')
   searchAnimes(@Body() animes) {
@@ -27,32 +22,26 @@ export class RssController {
 
   @Post('search')
   searchAnime(
-  @Body() searchParams: {
-    animeName: string;
-    limit: number;
-    status?: string;
-    page?: number; 
-    genre?: string;
-  }
+  @Body() 
+  {
+    animeName,
+    limit,
+    status
+    }: {
+    animeName: string
+    limit: number
+    status?: string
+    }
   ) {
-  if (!searchParams.animeName) {
-    return [];  // o retornar un error
-  }
-  return this.rssService.search({ 
-    animeName: searchParams.animeName,
-    limitResult: searchParams.limit,
-    status: searchParams.status,
-    page: searchParams.page || 1 ,
-    genre: searchParams.genre
-  });
+  return this.rssService.search({ animeName, limitResult: limit, status })
   }
 
+ */
   @Get('recommendations/:idAnilist')
   getAnimeRecommendations(@Param('idAnilist') idAnilist: number) {
   return this.rssService.getAnimeRecommendations(idAnilist);
   }
-
- */ 
+ 
   @Get('episodes/:idAnilist')
   getAllAnimeEpisodes(
     @Param('idAnilist') idAnilist: number,

@@ -129,6 +129,69 @@ export class RssService {
     };
   }
 
+  async getAnimeRecommendations(idAnilist: number): Promise<any> {
+    try {
+      const animeInfo = await this.fetchAnimeInfo(idAnilist);
+      if (!animeInfo) {
+        throw new Error(`No se encontró información del anime para ID: ${idAnilist}`);
+      }
+      const genres = animeInfo.genres || [];
+      const allAnimes = await this.fetchAnimeInfo(idAnilist); 
+
+      const recommendedAnimes = allAnimes.filter(anime => {
+        if (anime.idAnilist === idAnilist) return false;
+        return anime.genres.some(genre => genres.includes(genre));
+      });
+
+      const limitedRecommendations = recommendedAnimes.slice(0, 5);
+  
+      const formattedRecommendations = limitedRecommendations.map(anime => ({
+        id: anime.id || null,
+        idAnilist: anime.idAnilist || null,
+        idMal: anime.idMal || null,
+        title: {
+          romaji: anime.title?.romaji || null,
+          english: anime.title?.english || null,
+          native: anime.title?.native || null
+        },
+        description: anime.description || null,
+        descriptionTranslated: anime.descriptionTranslated || false,
+        season: anime.season || null,
+        seasonYear: anime.seasonYear || null,
+        format: anime.format || null,
+        status: anime.status || null,
+        episodes: anime.episodes || null,
+        duration: anime.duration || null,
+        genres: anime.genres || [],
+        coverImage: {
+          extraLarge: anime.coverImage?.extraLarge || null,
+          medium: anime.coverImage?.medium || null,
+          color: anime.coverImage?.color || null
+        },
+        bannerImage: anime.bannerImage || null,
+        synonyms: anime.synonyms || [],
+        nextAiringEpisode: anime.nextAiringEpisode || null,
+        startDate: {
+          year: anime.startDate?.year || null,
+          month: anime.startDate?.month || null,
+          day: anime.startDate?.day || null
+        },
+        trailer: {
+          id: anime.trailer?.id || null,
+          site: anime.trailer?.site || null
+        }
+      }));
+  
+      return formattedRecommendations;
+    } catch (error) {
+      console.error("Error obteniendo recomendaciones:", error);
+      return { 
+        error: "Error obteniendo recomendaciones.",
+        message: error.message
+      };
+    }
+  }
+
   async getAllAnimeEpisodes(
     idAnilist: number,
     includeTorrents: boolean = false,
