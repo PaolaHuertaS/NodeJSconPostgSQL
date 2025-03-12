@@ -22,47 +22,45 @@ export const query_anime = {
 
 //en las demás querys también se ponen el fragmento base, y de ahí añadimos lo que deseemos
   anime_recomendaciones: `
-     query ($genres: [String]) {
-          Page(perPage: 10) {
-            media(genre_in: $genres, type: ANIME, sort: POPULARITY_DESC) {
+      query($genres: [String], $idAnilist: Int, $page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          media(
+            genre_in: $genres,
+            type: ANIME,
+            id_not: $idAnilist,
+            sort: POPULARITY_DESC
+          ) {
+            id
+            idMal
+            title {
+              romaji
+              english
+              native
+            }
+            description
+            genres
+            coverImage {
+              extraLarge
+              medium
+              color
+            }
+            bannerImage
+            season
+            seasonYear
+            format
+            status
+            episodes
+            duration
+            averageScore
+            popularity
+            trailer {
               id
-              idMal
-              title {
-                romaji
-                english
-                native
-              }
-              description
-              season
-              seasonYear
-              format
-              status
-              episodes
-              duration
-              genres
-              coverImage {
-                extraLarge
-                medium
-                color
-              }
-              bannerImage
-              synonyms
-              nextAiringEpisode {
-                episode
-                airingAt
-              }
-              startDate {
-                year
-                month
-                day
-              }
-              trailer {
-                id
-                site
-              }
+              site
             }
           }
-        }`,
+        }
+      }
+    `,
 //nodes en este caso es para un array de resultados, de está manera me dará varios c:
 //anime de temporada, todos tienen un formato similar, inician con anime seguido de guion bajo y de ahí una palabra descriptiva
   anime_tempo: `

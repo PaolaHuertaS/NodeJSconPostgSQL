@@ -132,7 +132,13 @@ export class RssService {
   async getAnimeRecommendations(idAnilist: number): Promise<any> {
     try {
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
-      const genres = animeInfo.genres; 
+      const genres = animeInfo.genres.map(genre => genre.toLowerCase());
+      const variables = {
+        genres: genres,
+        idAnilist: idAnilist,
+        page: 1,        
+        perPage: 5      
+      };
 
       const response = await fetch(this.api_url, {
         method: 'POST',
@@ -140,7 +146,7 @@ export class RssService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ query: query_anime.anime_recomendaciones ,variables: { genres }})
+        body: JSON.stringify({ query: query_anime.anime_recomendaciones ,variables})
       });
 
       const data = await response.json();
