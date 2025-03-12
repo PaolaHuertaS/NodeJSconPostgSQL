@@ -37,7 +37,7 @@ export class RssService {
         }),
       });
       const data = await response.json();
-      return data.data.Media; 
+      return data.data.Media;
     } catch (error) {
       console.error("Error obteniendo información del anime:", error);
       return null;
@@ -57,18 +57,18 @@ export class RssService {
 
   async fetchRssData(RSS_URL: string, animeTitle: string, episodeNumber: number): Promise<any> {
     try {
-      const response = await fetch(RSS_URL); 
+      const response = await fetch(RSS_URL);
       const xmlData = await response.text();
       const rssData = this.parser.parse(xmlData);
-      const rssItems = Array.isArray(rssData.rss?.channel?.item) 
-        ? rssData.rss.channel.item 
+      const rssItems = Array.isArray(rssData.rss?.channel?.item)
+        ? rssData.rss.channel.item
         : [rssData.rss?.channel?.item || []];
       const episodeInfo = rssItems.find(item => {
         try {
           const parsedTitle = anitomyscript.sync(item.title);
 
           return (
-            item.title.toLowerCase().includes(animeTitle.toLowerCase()) && 
+            item.title.toLowerCase().includes(animeTitle.toLowerCase()) &&
             parseInt(parsedTitle.episode_number) === episodeNumber
           );
         } catch (e) {
@@ -86,9 +86,9 @@ export class RssService {
       const searchTerm = `${animeTitle} ${episodeNumber}`;
       const results = await si.search(searchTerm, {
         category: '1_2',
-        sort: 'seeders'  
-      }, 5); 
- 
+        sort: 'seeders'
+      }, 5);
+
       return results.filter(torrent => {
         try {
           const parsedTitle = anitomyscript.sync(torrent.name);
@@ -107,7 +107,7 @@ export class RssService {
         source: 'nyaa.si'
       }));
     } catch (error) {
-      return ;
+      return;
     }
   }
 
@@ -132,22 +132,21 @@ export class RssService {
   async getAnimeRecommendations(idAnilist: number): Promise<any> {
     try {
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
-      if (!animeInfo) {
-        throw new Error(`No se encontró información del anime para ID: ${idAnilist}`);
-      }
-      const genres = animeInfo.genres || [];
-      const allAnimes = await this.fetchAnimeInfo(idAnilist); 
+      const genres = animeInfo.genres; 
 
-      const recommendedAnimes = allAnimes.filter(anime => {
-        if (anime.idAnilist === idAnilist) return false;
-        return anime.genres.some(genre => genres.includes(genre));
+      const response = await fetch(this.api_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ query: query_anime.anime_recomendaciones ,variables: { genres }})
       });
 
-      const limitedRecommendations = recommendedAnimes.slice(0, 5);
-  
-      const formattedRecommendations = limitedRecommendations.map(anime => ({
+      const data = await response.json();
+      return data.data.Page.media.map(anime => ({
         id: anime.id || null,
-        idAnilist: anime.idAnilist || null,
+        idAnilist: anime.id || null,
         idMal: anime.idMal || null,
         title: {
           romaji: anime.title?.romaji || null,
@@ -181,17 +180,12 @@ export class RssService {
           site: anime.trailer?.site || null
         }
       }));
-  
-      return formattedRecommendations;
     } catch (error) {
       console.error("Error obteniendo recomendaciones:", error);
-      return { 
-        error: "Error obteniendo recomendaciones.",
-        message: error.message
-      };
+      return [];
     }
   }
-
+  
   async getAllAnimeEpisodes(
     idAnilist: number,
     includeTorrents: boolean = false,
@@ -249,7 +243,7 @@ export class RssService {
       };
     }
   }
-   
+
   async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
     try {
       const episodeNumber = parseInt(episode);
@@ -257,7 +251,7 @@ export class RssService {
       if (!animeInfo) {
         throw new Error(`No se encontró información del anime para ID: ${idAnilist}`);
       }
- 
+
       const [anizipData, rssData, nyaaTorrents] = await Promise.all([
         this.fetchAnizipData(idAnilist, episode).catch(() => null),
         this.fetchRssData(this.RSS_URL, animeInfo.title.romaji, episodeNumber).catch(() => null),
@@ -291,7 +285,7 @@ export class RssService {
         rating: anizipData?.rating || (rssData ? rssData["erai:rating"] : null) || null
       };
     } catch (error) {
-      return { 
+      return {
         error: "Error obteniendo datos del episodio.",
         message: error.message
       };

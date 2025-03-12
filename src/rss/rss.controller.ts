@@ -35,8 +35,8 @@ export class RssController {
   ) {
   return this.rssService.search({ animeName, limitResult: limit, status })
   }
-
- */
+*/
+ 
   @Get('recommendations/:idAnilist')
   getAnimeRecommendations(@Param('idAnilist') idAnilist: number) {
   return this.rssService.getAnimeRecommendations(idAnilist);
