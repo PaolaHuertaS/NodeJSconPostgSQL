@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Query } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Anime } from '../book/entities/rss.entity';
 import { query_anime } from './query';
 import { si } from 'nyaapi';
+import { identity } from 'rxjs';
 const anitomyscript = require('anitomyscript');
 
 @Injectable()
@@ -48,16 +49,28 @@ export class RssService {
     try {
       const response = await fetch(`https://api.ani.zip/mappings?anilist_id=${idAnilist}`);
       const data = await response.json();
-      return data.episodes?.[episode] || null;
+
+      if (!data || !data.episodes) {
+        console.error("No se encontraron datos de episodios en la respuesta de AniZip para el ID:", idAnilist);
+        return null;
+      }
+
+      const episodeData = data.episodes[episode];
+      if (!episodeData) {
+        console.error("No se encontró información para el episodio:", episode);
+        return null;
+      }
+
+      return episodeData;
     } catch (error) {
-      console.error("Error obteniendo datos de Anizip:", error);
+      console.error("Error obteniendo datos de AniZip:", error);
       return null;
     }
   }
 
   async fetchRssData(RSS_URL: string, animeTitle: string, episodeNumber: number): Promise<any> {
     try {
-      const response = await fetch(RSS_URL);
+      const response = await fetch(this.RSS_URL);
       const xmlData = await response.text();
       const rssData = this.parser.parse(xmlData);
       const rssItems = Array.isArray(rssData.rss?.channel?.item)
@@ -83,19 +96,42 @@ export class RssService {
 
   async fetchNyaaTorrents(animeTitle: string, episodeNumber: number): Promise<any[]> {
     try {
-      const searchTerm = `${animeTitle} ${episodeNumber}`;
-      const results = await si.search(searchTerm, {
+      // Quitar caracteres especiales y palabras comunes para mejorar búsqueda
+      const cleanTitle = animeTitle
+        .replace(/season \d+/i, '')
+        .replace(/\(.*?\)/g, '')
+        .replace(/[^\w\s]/gi, ' ')
+        .trim();
+
+      console.log(`Búsqueda en Nyaa con título limpio: "${cleanTitle}"`);
+
+      // Buscar sólo con el nombre del anime para obtener más resultados
+      const results = await si.search(cleanTitle, {
         category: '1_2',
         sort: 'seeders'
-      }, 5);
+      }, 15);
 
+      console.log(`Resultados totales de Nyaa: ${results.length}`);
+
+      // Filtrado más flexible
       return results.filter(torrent => {
-        try {
-          const parsedTitle = anitomyscript.sync(torrent.name);
-          return parseInt(parsedTitle.episode_number) === episodeNumber;
-        } catch (e) {
-          return false;
-        }
+        const torrentTitle = torrent.name.toLowerCase();
+        const searchTerms = cleanTitle.toLowerCase().split(' ');
+
+        // Verificar si contiene palabras clave del título
+        const titleMatch = searchTerms.some(term =>
+          term.length > 3 && torrentTitle.includes(term)
+        );
+
+        // Verificar número de episodio de manera flexible
+        const episodeMatch =
+          torrentTitle.includes(`e${episodeNumber}`) ||
+          torrentTitle.includes(`ep${episodeNumber}`) ||
+          torrentTitle.includes(`episode ${episodeNumber}`) ||
+          torrentTitle.includes(` ${episodeNumber} `) ||
+          torrentTitle.match(new RegExp(`\\b${episodeNumber}\\b`));
+
+        return titleMatch && episodeMatch;
       }).map(result => ({
         title: result.name,
         link: result.links?.magnet || null,
@@ -107,26 +143,109 @@ export class RssService {
         source: 'nyaa.si'
       }));
     } catch (error) {
-      return;
+      console.error(`Error en fetchNyaaTorrents: ${error.message}`);
+      return [];
     }
   }
 
-  buildTorrentInfo(episodeInfo: any, episodeNumber: number) {
-    if (!episodeInfo) return null;
-    return {
-      title: episodeInfo.title || null,
-      link: episodeInfo.link || null,
-      pubDate: episodeInfo.pubDate || null,
-      resolution: episodeInfo["erai:resolution"] || "1080p",
-      linkType: "Torrent",
-      size: episodeInfo["erai:size"] || null,
-      infoHash: episodeInfo.infoHash || null,
-      subtitles: episodeInfo["erai:subtitles"] || null,
-      category: "[Airing]",
-      episode: episodeNumber,
-      isHevc: (episodeInfo.title || "").toLowerCase().includes("hevc"),
-      hasNetflixSubs: (episodeInfo.title || "").toLowerCase().includes("netflix")
-    };
+  async findTrending(quantity?: number): Promise<any> {
+    try {
+      const animeInfo = await this.fetchAnimeInfo(0);
+
+      const allAnimes = Array.isArray(animeInfo) ? animeInfo : [animeInfo];
+      const trendingAnimes = quantity ? allAnimes.slice(0, quantity) : allAnimes;
+
+      const formattedAnimes = trendingAnimes.map(anime => ({
+        idAnilist: anime.id || null,
+        idMal: anime.idMal || null,
+        title: {
+          romaji: anime.title?.romaji || null,
+          english: anime.title?.english || null,
+          native: anime.title?.native || null
+        },
+        description: anime.description || null,
+        descriptionTranslated: anime.descriptionTranslated || false,
+        season: anime.season || null,
+        seasonYear: anime.seasonYear || null,
+        format: anime.format || null,
+        status: anime.status || null,
+        episodes: anime.episodes || null,
+        duration: anime.duration || null,
+        genres: anime.genres || [],
+        coverImage: {
+          extraLarge: anime.coverImage?.extraLarge || null,
+          medium: anime.coverImage?.medium || null,
+          color: anime.coverImage?.color || null
+        },
+        bannerImage: anime.bannerImage || null,
+        synonyms: anime.synonyms || [],
+        nextAiringEpisode: anime.nextAiringEpisode || null,
+        startDate: {
+          year: anime.startDate?.year || null,
+          month: anime.startDate?.month || null,
+          day: anime.startDate?.day || null
+        },
+        trailer: {
+          id: anime.trailer?.id || null,
+          site: anime.trailer?.site || null
+        }
+      }));
+
+      return formattedAnimes;
+    } catch (error) {
+      return {
+        error: "Error obteniendo animes populares.",
+        message: error.message
+      };
+    }
+  }
+
+  async findByAnilistId(idAnilist: number): Promise<any> {
+    try {
+      const animeInfo = await this.fetchAnimeInfo(idAnilist);
+
+      return {
+        id: animeInfo.id || null,
+        idAnilist: animeInfo.idAnilist || null,
+        idMal: animeInfo.idMal || null,
+        title: {
+          romaji: animeInfo.title?.romaji || null,
+          english: animeInfo.title?.english || null,
+          native: animeInfo.title?.native || null
+        },
+        description: animeInfo.description || null,
+        descriptionTranslated: animeInfo.descriptionTranslated || false,
+        season: animeInfo.season || null,
+        seasonYear: animeInfo.seasonYear || null,
+        format: animeInfo.format || null,
+        status: animeInfo.status || null,
+        episodes: animeInfo.episodes || null,
+        duration: animeInfo.duration || null,
+        genres: animeInfo.genres || [],
+        coverImage: {
+          extraLarge: animeInfo.coverImage?.extraLarge || null,
+          medium: animeInfo.coverImage?.medium || null,
+          color: animeInfo.coverImage?.color || null
+        },
+        bannerImage: animeInfo.bannerImage || null,
+        synonyms: animeInfo.synonyms || [],
+        nextAiringEpisode: animeInfo.nextAiringEpisode || null,
+        startDate: {
+          year: animeInfo.startDate?.year || null,
+          month: animeInfo.startDate?.month || null,
+          day: animeInfo.startDate?.day || null
+        },
+        trailer: {
+          id: animeInfo.trailer?.id || null,
+          site: animeInfo.trailer?.site || null
+        }
+      };
+    } catch (error) {
+      return {
+        error: "Error obteniendo información del anime.",
+        message: error.message
+      };
+    }
   }
 
   async getAnimeRecommendations(idAnilist: number): Promise<any> {
@@ -136,8 +255,8 @@ export class RssService {
       const variables = {
         genres: genres,
         idAnilist: idAnilist,
-        page: 1,        
-        perPage: 5      
+        page: 1,
+        perPage: 5
       };
 
       const response = await fetch(this.api_url, {
@@ -146,7 +265,7 @@ export class RssService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ query: query_anime.anime_recomendaciones ,variables})
+        body: JSON.stringify({ query: query_anime.anime_recomendaciones, variables })
       });
 
       const data = await response.json();
@@ -191,7 +310,7 @@ export class RssService {
       return [];
     }
   }
-  
+
   async getAllAnimeEpisodes(
     idAnilist: number,
     includeTorrents: boolean = false,
@@ -199,11 +318,11 @@ export class RssService {
   ): Promise<any> {
     try {
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
-  
+
       const anizipData = await this.fetchAnizipData(idAnilist, "all").catch(() => null);
       const episodes = Object.keys(anizipData.episodes).map(episode => {
         const episodeData = anizipData.episodes[episode];
- 
+
         let torrents = null;
         if (includeTorrents) {
           torrents = this.fetchNyaaTorrents(animeInfo.title.romaji, parseInt(episode))
@@ -215,7 +334,7 @@ export class RssService {
             }))
             .catch(() => []);
         }
-  
+
         return {
           tvdbShowId: episodeData.tvdbShowId || null,
           tvdbId: episodeData.tvdbId || null,
@@ -240,10 +359,10 @@ export class RssService {
           torrents: includeTorrents ? torrents : null
         };
       });
-  
+
       return { episodes };
     } catch (error) {
-      return { 
+      return {
         error: "Error obteniendo todos los episodios.",
         message: error.message
       };
@@ -297,4 +416,210 @@ export class RssService {
       };
     }
   }
+
+  async getRssFeed(page: number = 1, perPage: number = 10, withHevc: boolean = false): Promise<any[]> {
+    try {
+      const rssResponse = await fetch(this.RSS_URL);
+      const rssText = await rssResponse.text();
+      const rssData = this.parser.parse(rssText);
+      
+      const rssItems = Array.isArray(rssData.rss.channel.item) 
+        ? rssData.rss.channel.item 
+        : [rssData.rss.channel.item];
+      
+      let filteredItems = rssItems.filter(item => {
+        const title = item.title.toLowerCase();
+        const isHevc = 
+          title.includes('hevc') || 
+          title.includes('h.265') || 
+          title.includes('h265') ||
+          title.includes('x265');
+        
+        return withHevc ? isHevc : !isHevc;
+      });
+      
+      if (filteredItems.length === 0 && withHevc) {
+        filteredItems = rssItems;
+      }
+
+      const startIndex = (page - 1) * perPage;
+      const endIndex = Math.min(startIndex + perPage, filteredItems.length);
+      const paginatedItems = filteredItems.slice(startIndex, endIndex);
+ 
+      const results = [];
+      
+      for (const item of paginatedItems) {
+        try {
+          const titleRegexPatterns = [
+            /\[Erai-raws\] (.+?) - (\d+)/,
+            /\[.+?\] (.+?) - (\d+)/,
+            /(.+?) - (\d+) \[/
+          ];
+          
+          let animeTitle = "";
+          let episodeNumber = 0;
+          let matched = false;
+          
+          for (const pattern of titleRegexPatterns) {
+            const match = item.title.match(pattern);
+            if (match) {
+              animeTitle = match[1];
+              episodeNumber = parseInt(match[2]);
+              matched = true;
+              break;
+            }
+          }
+          
+          if (!matched) {
+            continue;
+          }
+ 
+          let animeInfo = null;
+          let anilistId = null;
+          
+          try {
+            const anilistQuery = `
+              query {
+                Media(search: "${animeTitle}", type: ANIME) {
+                  id
+                  title {
+                    romaji
+                    english
+                    native
+                  }
+                  coverImage {
+                    extraLarge
+                  }
+                  bannerImage
+                  duration
+                }
+              }
+            `;
+            
+            const anilistResponse = await fetch(this.api_url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+              body: JSON.stringify({ query: anilistQuery }),
+            });
+            
+            const anilistData = await anilistResponse.json();
+            animeInfo = anilistData.data?.Media;
+            
+            if (animeInfo) {
+              anilistId = animeInfo.id;
+            } else {
+              continue; 
+            }
+          } catch (anilistError) {
+            continue; 
+          }
+
+          let mappingData = null;
+          let episodeData = null;
+          
+          try {
+            console.log(`Consultando ani.zip para ID: ${anilistId}`);
+            const anizipResponse = await fetch(`https://api.ani.zip/mappings?anilist_id=${anilistId}`);
+            const anizipData = await anizipResponse.json();
+            
+            console.log(`Respuesta de ani.zip:`, JSON.stringify(anizipData).substring(0, 500) + '...');
+            
+            if (anizipData && anizipData.length > 0) {
+              mappingData = anizipData[0];
+              console.log(`Estructura de mappingData:`, Object.keys(mappingData));
+              
+              if (mappingData.episodes) {
+                console.log(`Episodios disponibles:`, Object.keys(mappingData.episodes));
+                
+                if (mappingData.episodes[episodeNumber.toString()]) {
+                  episodeData = mappingData.episodes[episodeNumber.toString()];
+                  console.log(`Estructura de episodeData:`, Object.keys(episodeData));
+                } else {
+                  console.log(`No se encontró información para el episodio ${episodeNumber}`);
+                }
+              } else {
+                console.log(`No hay datos de episodios en la respuesta de ani.zip`);
+              }
+            } else {
+              console.log(`No se encontraron datos en ani.zip para ID: ${anilistId}`);
+            }
+          } catch (anizipError) {
+            console.error(`Error consultando ani.zip:`, anizipError);
+          }
+          
+          const sizeMatch = item.description?.match(/Size: ([0-9.]+[KMGT]B)/i);
+          const hashMatch = item.description?.match(/Hash: ([a-f0-9]{40})/i);
+
+          const result = {
+            idAnilist: anilistId,
+          title: {
+            romaji: animeInfo.title?.romaji || null,
+            english: animeInfo.title?.english || null,
+            native: animeInfo.title?.native || null,
+          },
+          duration: animeInfo.duration || null, 
+          coverImage: {
+            extraLarge: animeInfo.coverImage?.extraLarge || null,
+          },
+          bannerImage: animeInfo.bannerImage || null,
+          episode: {
+            tvdbShowId: episodeData?.tvdbShowId || null,
+            tvdbId: episodeData?.tvdbId || null,
+            seasonNumber: episodeData?.seasonNumber || null, 
+            episodeNumber: episodeNumber,
+            absoluteEpisodeNumber: episodeNumber,
+            airDate: episodeData?.airdate || (item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : null),
+            airDateUtc: episodeData?.airDateUtc || item.pubDate,
+            runtime: episodeData?.runtime || animeInfo.duration || null, 
+            image: episodeData?.coverImage || null,
+            episode: episodeNumber.toString(),
+            anidbEid: episodeData?.anidbEid || null,
+            length: episodeData?.length || animeInfo.duration || null, 
+            airdate: episodeData?.airdate || (item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : null)
+            },
+            torrent: {
+              title: item.title.replace(/\[Torrent\] /, ""), 
+              link: item.link,
+              pubDate: item.pubDate,
+              resolution: item.title.includes('1080p') ? '1080p' :
+                item.title.includes('720p') ? '720p' : '1080p',
+              linkType: "Torrent", 
+              size: sizeMatch ? sizeMatch[1] : null,
+              infoHash: hashMatch ? hashMatch[1] : null,
+              subtitles: this.extractSubtitles(item.title), 
+              category: "[Airing]", 
+              fileName: item.title.replace(/\[Torrent\] /, ""), 
+              episode: episodeNumber,
+              isHevc: item.title.toLowerCase().includes("hevc") ||
+                item.title.toLowerCase().includes("h.265") ||
+                item.title.toLowerCase().includes("x265"),
+              hasNetflixSubs: item.title.toLowerCase().includes("netflix")
+            }
+          };
+          
+          results.push(result);
+        } catch (itemError) {
+          continue;
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error("Error en getRssFeed:", error);
+      return [];
+    }
+  }
+
+  private extractSubtitles(title: string): string {
+    const subtitleRegex = /\[([a-z]{2})\]/g;
+    const matches = title.match(subtitleRegex);
+    if (matches) {
+      return matches.join(""); 
+    }
+    return ""; 
+  }
+
 }

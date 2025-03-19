@@ -4,7 +4,7 @@ import { RssService } from './rss.service';
 @Controller('anime')
 export class RssController {
   constructor(private readonly rssService: RssService) { }
-/*
+
   @Get('list')
     getAnimes(@Query('quantity') quantity: number) {
     return this.rssService.findTrending(quantity);
@@ -14,12 +14,13 @@ export class RssController {
   getAnime(@Param('idAnilist') idAnilist: number) {
     return this.rssService.findByAnilistId(idAnilist);
   }
-  
+/*  
   @Post('search/batch')
   searchAnimes(@Body() animes) {
     return this.rssService.searchArray(animes);
   }
-
+*/
+/*
   @Post('search')
   searchAnime(
   @Body() 
@@ -36,7 +37,6 @@ export class RssController {
   return this.rssService.search({ animeName, limitResult: limit, status })
   }
 */
- 
   @Get('recommendations/:idAnilist')
   getAnimeRecommendations(@Param('idAnilist') idAnilist: number) {
   return this.rssService.getAnimeRecommendations(idAnilist);
@@ -60,7 +60,7 @@ export class RssController {
   ) {
     return this.rssService.getEpisodeData(idAnilist, episode);
   }
-/*
+
   @Get('rss')
   getRssFeed(
   @Query('page') page: number = 1,
@@ -70,6 +70,8 @@ export class RssController {
     const includeHevc = withHevc === 'true';
     return this.rssService.getRssFeed(page, perPage, includeHevc);
   }
+/*
+  
 
   @Put(':idAnilist')
   async updateAnime(

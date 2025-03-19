@@ -151,15 +151,34 @@ anime_episodio: `
 ${graphqlAnimeClase.animeBase()}
   query ($id: Int) {
     Media(id: $id, type: ANIME) {
-      id
+      idMal
       ...animeBase
       episodes
       status
-      description
+      format
+      season
+      seasonYear
+       title {
+        english
+      }
+      synonyms
+      coverImage {
+        medium
+        extraLarge
+        color
+      }
+      bannerImage
+      duration
+      episodes
       nextAiringEpisode {
         episode
         airingAt
       }
+      trailer {
+        id
+        site
+      }
+      description
     }
   }
 `,
@@ -214,5 +233,38 @@ query ($genre: String, $limit: Int) {
         }
       }
     }
-`
+`,
+
+  anime_rss: `
+        query ($page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+            media {
+                id
+                idMal
+                title {
+                    romaji
+                    english
+                    native
+                }
+                description
+                genres
+                season
+                seasonYear
+                format
+                status
+                episodes
+                duration
+                coverImage {
+                    extraLarge
+                }
+                bannerImage
+                averageScore
+                nextAiringEpisode {
+                    episode
+                    airingAt
+                }
+            }
+        }
+    }
+ `,
 };
