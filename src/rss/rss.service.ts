@@ -1,11 +1,10 @@
-import { Injectable, Logger, Query } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Anime } from '../book/entities/rss.entity';
 import { query_anime } from './query';
 import { si } from 'nyaapi';
-import { identity } from 'rxjs';
 const anitomyscript = require('anitomyscript');
 
 @Injectable()
@@ -516,45 +515,49 @@ export class RssService {
           } catch (anilistError) {
             continue; 
           }
-
-          let mappingData = null;
+          
           let episodeData = null;
           
           try {
-            console.log(`Consultando ani.zip para ID: ${anilistId}`);
-            const anizipResponse = await fetch(`https://api.ani.zip/mappings?anilist_id=${anilistId}`);
-            const anizipData = await anizipResponse.json();
-            
-            console.log(`Respuesta de ani.zip:`, JSON.stringify(anizipData).substring(0, 500) + '...');
-            
-            if (anizipData && anizipData.length > 0) {
-              mappingData = anizipData[0];
-              console.log(`Estructura de mappingData:`, Object.keys(mappingData));
-              
-              if (mappingData.episodes) {
-                console.log(`Episodios disponibles:`, Object.keys(mappingData.episodes));
-                
-                if (mappingData.episodes[episodeNumber.toString()]) {
-                  episodeData = mappingData.episodes[episodeNumber.toString()];
-                  console.log(`Estructura de episodeData:`, Object.keys(episodeData));
-                } else {
-                  console.log(`No se encontró información para el episodio ${episodeNumber}`);
-                }
-              } else {
-                console.log(`No hay datos de episodios en la respuesta de ani.zip`);
+            const anizipUrl = `https://api.ani.zip/mappings?anilist_id=${anilistId}`;  
+            const anizipResponse = await fetch(anizipUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json'
               }
-            } else {
-              console.log(`No se encontraron datos en ani.zip para ID: ${anilistId}`);
+            });
+            
+            if (!anizipResponse.ok) {
+              throw new Error(`Error en respuesta de ani.zip: ${anizipResponse.status}`);
+            }
+            
+            const mappingData = await anizipResponse.json();
+            
+            if (mappingData && mappingData.episodes) {
+              if (mappingData.episodes[episodeNumber.toString()]) {
+                episodeData = mappingData.episodes[episodeNumber.toString()];
+              } else {
+                const episodeKeys = Object.keys(mappingData.episodes)
+                  .filter(key => !isNaN(parseInt(key)))
+                  .map(key => parseInt(key));
+                
+                if (episodeKeys.length > 0) {
+                  const closestEpisode = episodeKeys.reduce((prev, curr) => 
+                    Math.abs(curr - episodeNumber) < Math.abs(prev - episodeNumber) ? curr : prev
+                  );
+                  
+                  episodeData = mappingData.episodes[closestEpisode.toString()];
+                }
+              }
             }
           } catch (anizipError) {
-            console.error(`Error consultando ani.zip:`, anizipError);
           }
           
           const sizeMatch = item.description?.match(/Size: ([0-9.]+[KMGT]B)/i);
           const hashMatch = item.description?.match(/Hash: ([a-f0-9]{40})/i);
 
           const result = {
-            idAnilist: anilistId,
+          idAnilist: anilistId,
           title: {
             romaji: animeInfo.title?.romaji || null,
             english: animeInfo.title?.english || null,
@@ -574,14 +577,15 @@ export class RssService {
             airDate: episodeData?.airdate || (item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : null),
             airDateUtc: episodeData?.airDateUtc || item.pubDate,
             runtime: episodeData?.runtime || animeInfo.duration || null, 
-            image: episodeData?.coverImage || null,
+            image: episodeData?.image || null,
             episode: episodeNumber.toString(),
             anidbEid: episodeData?.anidbEid || null,
             length: episodeData?.length || animeInfo.duration || null, 
-            airdate: episodeData?.airdate || (item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : null)
+            airdate: episodeData?.airdate || (item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : null),
+            rating: episodeData?.rating || null
             },
             torrent: {
-              title: item.title.replace(/\[Torrent\] /, ""), 
+              title: animeTitle, 
               link: item.link,
               pubDate: item.pubDate,
               resolution: item.title.includes('1080p') ? '1080p' :
