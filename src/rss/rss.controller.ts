@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Query, Post, Body, Put } from '@nestjs/common';
 import { RssService } from './rss.service';
+import { Anime } from '../book/entities/rss.entity';
 
 @Controller('anime')
 export class RssController {
@@ -70,8 +71,6 @@ export class RssController {
     const includeHevc = withHevc === 'true';
     return this.rssService.getRssFeed(page, perPage, includeHevc);
   }
-/*
-  
 
   @Put(':idAnilist')
   async updateAnime(
@@ -79,5 +78,5 @@ export class RssController {
   @Body() updateAnimeDto: Partial<Anime>
    ) {
   return this.rssService.updateAnime(idAnilist, updateAnimeDto);
-   }*/
+   }
 }

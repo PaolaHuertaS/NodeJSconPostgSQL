@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Anime } from '../book/entities/rss.entity';
 import { query_anime } from './query';
 import { si } from 'nyaapi';
-const anitomyscript = require('anitomyscript');
+import  anitomyscript = require('anitomyscript');
 
 @Injectable()
 export class RssService {
@@ -421,22 +421,22 @@ export class RssService {
       const rssResponse = await fetch(this.RSS_URL);
       const rssText = await rssResponse.text();
       const rssData = this.parser.parse(rssText);
-      
-      const rssItems = Array.isArray(rssData.rss.channel.item) 
-        ? rssData.rss.channel.item 
+
+      const rssItems = Array.isArray(rssData.rss.channel.item)
+        ? rssData.rss.channel.item
         : [rssData.rss.channel.item];
-      
+
       let filteredItems = rssItems.filter(item => {
         const title = item.title.toLowerCase();
-        const isHevc = 
-          title.includes('hevc') || 
-          title.includes('h.265') || 
+        const isHevc =
+          title.includes('hevc') ||
+          title.includes('h.265') ||
           title.includes('h265') ||
           title.includes('x265');
-        
+
         return withHevc ? isHevc : !isHevc;
       });
-      
+
       if (filteredItems.length === 0 && withHevc) {
         filteredItems = rssItems;
       }
@@ -444,57 +444,46 @@ export class RssService {
       const startIndex = (page - 1) * perPage;
       const endIndex = Math.min(startIndex + perPage, filteredItems.length);
       const paginatedItems = filteredItems.slice(startIndex, endIndex);
- 
+
       const results = [];
-      
+
       for (const item of paginatedItems) {
         try {
-          const titleRegexPatterns = [
-            /\[Erai-raws\] (.+?) - (\d+)/,
-            /\[.+?\] (.+?) - (\d+)/,
-            /(.+?) - (\d+) \[/
-          ];
-          
-          let animeTitle = "";
-          let episodeNumber = 0;
-          let matched = false;
-          
-          for (const pattern of titleRegexPatterns) {
-            const match = item.title.match(pattern);
-            if (match) {
-              animeTitle = match[1];
-              episodeNumber = parseInt(match[2]);
-              matched = true;
-              break;
-            }
-          }
-          
-          if (!matched) {
+          const parsedTitle = await anitomyscript(item.title);
+          const animeTitle = parsedTitle.anime_title || "";
+          const episodeNumber = parsedTitle.episode_number ? parseInt(parsedTitle.episode_number) : null;
+
+          if (!animeTitle || episodeNumber === null) {
             continue;
           }
- 
+
+          const releaseGroup = parsedTitle.release_group || "Erai-raws";
+          const videoResolution = parsedTitle.video_resolution || "1080p";
+          const videoTerm = parsedTitle.video_term || "CR WEB-DL AVC AAC";
+          const fileName = ` ${animeTitle} - ${episodeNumber} [${videoResolution} ${videoTerm}][MultiSub].mkv`;
+
           let animeInfo = null;
           let anilistId = null;
-          
+
           try {
             const anilistQuery = `
-              query {
-                Media(search: "${animeTitle}", type: ANIME) {
-                  id
-                  title {
-                    romaji
-                    english
-                    native
-                  }
-                  coverImage {
-                    extraLarge
-                  }
-                  bannerImage
-                  duration
+            query {
+              Media(search: "${animeTitle}", type: ANIME) {
+                id
+                title {
+                  romaji
+                  english
+                  native
                 }
+                coverImage {
+                  extraLarge
+                }
+                bannerImage
+                duration
               }
-            `;
-            
+            }
+          `;
+
             const anilistResponse = await fetch(this.api_url, {
               method: 'POST',
               headers: {
@@ -503,36 +492,36 @@ export class RssService {
               },
               body: JSON.stringify({ query: anilistQuery }),
             });
-            
+
             const anilistData = await anilistResponse.json();
             animeInfo = anilistData.data?.Media;
-            
+
             if (animeInfo) {
               anilistId = animeInfo.id;
             } else {
-              continue; 
+              continue;
             }
           } catch (anilistError) {
-            continue; 
+            continue;
           }
-          
+
           let episodeData = null;
-          
+
           try {
-            const anizipUrl = `https://api.ani.zip/mappings?anilist_id=${anilistId}`;  
+            const anizipUrl = `https://api.ani.zip/mappings?anilist_id=${anilistId}`;
             const anizipResponse = await fetch(anizipUrl, {
               method: 'GET',
               headers: {
                 'Accept': 'application/json'
               }
             });
-            
+
             if (!anizipResponse.ok) {
               throw new Error(`Error en respuesta de ani.zip: ${anizipResponse.status}`);
             }
-            
+
             const mappingData = await anizipResponse.json();
-            
+
             if (mappingData && mappingData.episodes) {
               if (mappingData.episodes[episodeNumber.toString()]) {
                 episodeData = mappingData.episodes[episodeNumber.toString()];
@@ -540,70 +529,74 @@ export class RssService {
                 const episodeKeys = Object.keys(mappingData.episodes)
                   .filter(key => !isNaN(parseInt(key)))
                   .map(key => parseInt(key));
-                
+
                 if (episodeKeys.length > 0) {
-                  const closestEpisode = episodeKeys.reduce((prev, curr) => 
+                  const closestEpisode = episodeKeys.reduce((prev, curr) =>
                     Math.abs(curr - episodeNumber) < Math.abs(prev - episodeNumber) ? curr : prev
                   );
-                  
+
                   episodeData = mappingData.episodes[closestEpisode.toString()];
                 }
               }
             }
           } catch (anizipError) {
           }
-          
+
           const sizeMatch = item.description?.match(/Size: ([0-9.]+[KMGT]B)/i);
           const hashMatch = item.description?.match(/Hash: ([a-f0-9]{40})/i);
 
           const result = {
-          idAnilist: anilistId,
-          title: {
-            romaji: animeInfo.title?.romaji || null,
-            english: animeInfo.title?.english || null,
-            native: animeInfo.title?.native || null,
-          },
-          duration: animeInfo.duration || null, 
-          coverImage: {
-            extraLarge: animeInfo.coverImage?.extraLarge || null,
-          },
-          bannerImage: animeInfo.bannerImage || null,
-          episode: {
-            tvdbShowId: episodeData?.tvdbShowId || null,
-            tvdbId: episodeData?.tvdbId || null,
-            seasonNumber: episodeData?.seasonNumber || null, 
-            episodeNumber: episodeNumber,
-            absoluteEpisodeNumber: episodeNumber,
-            airDate: episodeData?.airdate || (item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : null),
-            airDateUtc: episodeData?.airDateUtc || item.pubDate,
-            runtime: episodeData?.runtime || animeInfo.duration || null, 
-            image: episodeData?.image || null,
-            episode: episodeNumber.toString(),
-            anidbEid: episodeData?.anidbEid || null,
-            length: episodeData?.length || animeInfo.duration || null, 
-            airdate: episodeData?.airdate || (item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : null),
-            rating: episodeData?.rating || null
+            idAnilist: anilistId,
+            title: {
+              romaji: animeInfo.title?.romaji || null,
+              english: animeInfo.title?.english || null,
+              native: animeInfo.title?.native || null,
+            },
+            duration: animeInfo.duration || null,
+            coverImage: {
+              extraLarge: animeInfo.coverImage?.extraLarge || null,
+            },
+            bannerImage: animeInfo.bannerImage || null,
+            episode: {
+              tvdbShowId: episodeData?.tvdbShowId || null,
+              tvdbId: episodeData?.tvdbId || null,
+              seasonNumber: episodeData?.seasonNumber || null,
+              episodeNumber: episodeNumber,
+              absoluteEpisodeNumber: episodeNumber,
+              title: {
+                ja: episodeData?.title?.ja || null,
+                en: episodeData?.title?.en || null,
+                "x-jat": episodeData?.title?.["x-jat"] || null
+              },
+              airDate: episodeData?.airdate || (item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : null),
+              airDateUtc: episodeData?.airDateUtc || item.pubDate,
+              runtime: episodeData?.runtime || animeInfo.duration || null,
+              image: episodeData?.image || null,
+              episode: episodeNumber.toString(),
+              anidbEid: episodeData?.anidbEid || null,
+              length: episodeData?.length || animeInfo.duration || null,
+              airdate: episodeData?.airdate || (item.pubDate ? new Date(item.pubDate).toISOString().split('T')[0] : null),
+              rating: episodeData?.rating || null
             },
             torrent: {
-              title: animeTitle, 
+              title: animeTitle,
               link: item.link,
               pubDate: item.pubDate,
-              resolution: item.title.includes('1080p') ? '1080p' :
-                item.title.includes('720p') ? '720p' : '1080p',
-              linkType: "Torrent", 
-              size: sizeMatch ? sizeMatch[1] : null,
+              resolution: parsedTitle.video_resolution || "1080p",
+              linkType: "Torrent",
+              size: sizeMatch ? sizeMatch[1] : parsedTitle.file_size || null,
               infoHash: hashMatch ? hashMatch[1] : null,
-              subtitles: this.extractSubtitles(item.title), 
-              category: "[Airing]", 
-              fileName: item.title.replace(/\[Torrent\] /, ""), 
+              subtitles: this.extractSubtitles(item.title),
+              category: "[Airing]",
+              fileName: fileName,
               episode: episodeNumber,
-              isHevc: item.title.toLowerCase().includes("hevc") ||
-                item.title.toLowerCase().includes("h.265") ||
-                item.title.toLowerCase().includes("x265"),
+              isHevc: parsedTitle.video_term?.toLowerCase().includes("hevc") ||
+                parsedTitle.video_term?.toLowerCase().includes("h265") ||
+                parsedTitle.video_term?.toLowerCase().includes("x265") || false,
               hasNetflixSubs: item.title.toLowerCase().includes("netflix")
             }
           };
-          
+
           results.push(result);
         } catch (itemError) {
           continue;
@@ -621,9 +614,16 @@ export class RssService {
     const subtitleRegex = /\[([a-z]{2})\]/g;
     const matches = title.match(subtitleRegex);
     if (matches) {
-      return matches.join(""); 
+      return matches.join("");
     }
-    return ""; 
+    return "";
+  }
+
+  async updateAnime(idAnilist: number, updateAnimeDto: Partial<Anime>): Promise<Anime> {
+    const anime = await this.animeRepository.findOne({ where: { idAnilist } });
+    
+    Object.assign(anime, updateAnimeDto);
+    return this.animeRepository.save(anime);
   }
 
 }
