@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import * as HTTP from './https'; 
 import { XMLParser } from 'fast-xml-parser';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -370,7 +371,21 @@ export class RssService {
 
   async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
     try {
+      if (!idAnilist || isNaN(idAnilist)) {
+        return {
+          statusCode: HTTP.HTTP_BAD_REQUEST,
+          error: "Error obteniendo datos del episodio.",
+          message: "ID de Anilist inválido"
+        };
+      }
       const episodeNumber = parseInt(episode);
+      if (isNaN(episodeNumber)) {
+        return {
+          statusCode: HTTP.HTTP_BAD_REQUEST,
+          error: "Error obteniendo datos del episodio.",
+          message: "El número de episodio debe ser un valor numérico"
+        };
+      }
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
       if (!animeInfo) {
         throw new Error(`No se encontró información del anime para ID: ${idAnilist}`);
@@ -381,6 +396,14 @@ export class RssService {
         this.fetchRssData(this.RSS_URL, animeInfo.title.romaji, episodeNumber).catch(() => null),
         this.fetchNyaaTorrents(animeInfo.title.romaji, episodeNumber).catch(() => [])
       ]);
+
+      if (!anizipData && !rssData && (!nyaaTorrents || nyaaTorrents.length === 0)) {
+        return {
+          statusCode: HTTP.HTTP_NOT_FOUND,
+          error: "Error obteniendo datos del episodio.",
+          message: `No se encontraron datos para el episodio ${episode} del anime ${animeInfo.title.romaji}`
+        };
+      }
 
       return {
         tvdbShowId: anizipData?.tvdbShowId || null,
@@ -409,9 +432,24 @@ export class RssService {
         rating: anizipData?.rating || (rssData ? rssData["erai:rating"] : null) || null
       };
     } catch (error) {
-      return {
-        error: "Error obteniendo datos del episodio.",
-        message: error.message
+      let statusCode = HTTP.HTTP_INTERNAL_SERVER_ERROR; //500 
+      
+      if (error.message) {
+        if (error.message.includes('No se encontró información del anime')) {
+          statusCode = HTTP.HTTP_NOT_FOUND; // 404
+        } else if (error.message.includes('timeout')) {
+          statusCode = HTTP.HTTP_GATEWAY_TIMEOUT; // 504
+        } else if (error.message.includes('no autorizado')) {
+          statusCode = HTTP.HTTP_UNAUTHORIZED; // 401
+        } else if (error.message.includes('permiso')) {
+          statusCode = HTTP.HTTP_FORBIDDEN; // 403
+        }
+    }
+
+    return {
+      statusCode,
+      error: "Error obteniendo datos del episodio.",
+      message: error.message
       };
     }
   }
