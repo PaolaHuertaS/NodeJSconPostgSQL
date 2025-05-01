@@ -150,10 +150,33 @@ export class RssService {
 
   async findTrending(quantity?: number): Promise<any> {
     try {
+      if (quantity !== undefined && (isNaN(quantity) || quantity < 1)) {
+        return {
+          statusCode: HTTP.HTTP_BAD_REQUEST,
+          error: "Error obteniendo animes populares.",
+          message: "El parámetro quantity debe ser un número positivo"
+        };
+      }
       const animeInfo = await this.fetchAnimeInfo(0);
+
+      if (!animeInfo) {
+        return {
+          statusCode: HTTP.HTTP_NOT_FOUND,
+          error: "Error obteniendo animes populares.",
+          message: "No se encontraron animes populares"
+        };
+      }
 
       const allAnimes = Array.isArray(animeInfo) ? animeInfo : [animeInfo];
       const trendingAnimes = quantity ? allAnimes.slice(0, quantity) : allAnimes;
+
+      if (trendingAnimes.length === 0) {
+        return {
+          statusCode: HTTP.HTTP_NOT_FOUND,
+          error: "Error obteniendo animes populares.",
+          message: "No se encontraron animes populares que cumplan con los criterios"
+        };
+      }
 
       const formattedAnimes = trendingAnimes.map(anime => ({
         idAnilist: anime.id || null,
@@ -193,7 +216,22 @@ export class RssService {
 
       return formattedAnimes;
     } catch (error) {
+       let statusCode = HTTP.HTTP_INTERNAL_SERVER_ERROR; //500
+      
+      if (error.message) {
+        if (error.message.includes('timeout')) {
+          statusCode = HTTP.HTTP_GATEWAY_TIMEOUT; //504
+        } else if (error.message.includes('no autorizado')) {
+          statusCode = HTTP.HTTP_UNAUTHORIZED; //401
+        } else if (error.message.includes('API')) {
+          statusCode = HTTP.HTTP_BAD_GATEWAY; //502
+        } else if (error.message.includes('no disponible')) {
+          statusCode = HTTP.HTTP_SERVICE_UNAVAILABLE; //503
+        }
+      }
+      
       return {
+        statusCode,
         error: "Error obteniendo animes populares.",
         message: error.message
       };
