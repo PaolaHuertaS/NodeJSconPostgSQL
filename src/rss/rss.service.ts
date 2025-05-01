@@ -240,7 +240,21 @@ export class RssService {
 
   async findByAnilistId(idAnilist: number): Promise<any> {
     try {
+      if (!idAnilist || isNaN(idAnilist)) {
+        return {
+          statusCode: HTTP.HTTP_BAD_REQUEST,
+          error: "Error obteniendo información del anime.",
+          message: "ID de Anilist inválido"
+        };
+      }
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
+      if (!animeInfo) {
+        return {
+          statusCode: HTTP.HTTP_NOT_FOUND,
+          error: "Error obteniendo información del anime.",
+          message: `No se encontró el anime con ID: ${idAnilist}`
+        };
+      }
 
       return {
         id: animeInfo.id || null,
@@ -279,7 +293,26 @@ export class RssService {
         }
       };
     } catch (error) {
+      let statusCode = HTTP.HTTP_INTERNAL_SERVER_ERROR; //500
+      
+      if (error.message) {
+        if (error.message.includes('no encontr')) {
+          statusCode = HTTP.HTTP_NOT_FOUND; //404
+        } else if (error.message.includes('timeout')) {
+          statusCode = HTTP.HTTP_GATEWAY_TIMEOUT; //504
+        } else if (error.message.includes('no autorizado')) {
+          statusCode = HTTP.HTTP_UNAUTHORIZED; //401
+        } else if (error.message.includes('permiso')) {
+          statusCode = HTTP.HTTP_FORBIDDEN; //403
+        } else if (error.message.includes('API')) {
+          statusCode = HTTP.HTTP_BAD_GATEWAY; //502
+        } else if (error.message.includes('servicio no disponible')) {
+          statusCode = HTTP.HTTP_SERVICE_UNAVAILABLE; //503
+        }
+      }
+      
       return {
+        statusCode,
         error: "Error obteniendo información del anime.",
         message: error.message
       };
