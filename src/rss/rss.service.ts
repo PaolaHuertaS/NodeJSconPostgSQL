@@ -1,5 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import * as HTTP from './https'; 
+import { Injectable, HttpStatus } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -152,7 +151,7 @@ export class RssService {
     try {
       if (quantity !== undefined && (isNaN(quantity) || quantity < 1)) {
         return {
-          statusCode: HTTP.HTTP_BAD_REQUEST,
+          statusCode: HttpStatus.BAD_REQUEST,
           error: "Error obteniendo animes populares.",
           message: "El parámetro quantity debe ser un número positivo"
         };
@@ -161,7 +160,7 @@ export class RssService {
 
       if (!animeInfo) {
         return {
-          statusCode: HTTP.HTTP_NOT_FOUND,
+          statusCode: HttpStatus.NOT_FOUND,
           error: "Error obteniendo animes populares.",
           message: "No se encontraron animes populares"
         };
@@ -172,7 +171,7 @@ export class RssService {
 
       if (trendingAnimes.length === 0) {
         return {
-          statusCode: HTTP.HTTP_NOT_FOUND,
+          statusCode: HttpStatus.NOT_FOUND,
           error: "Error obteniendo animes populares.",
           message: "No se encontraron animes populares que cumplan con los criterios"
         };
@@ -216,17 +215,17 @@ export class RssService {
 
       return formattedAnimes;
     } catch (error) {
-       let statusCode = HTTP.HTTP_INTERNAL_SERVER_ERROR; //500
+      let statusCode = HttpStatus.INTERNAL_SERVER_ERROR; // 500 
       
       if (error.message) {
         if (error.message.includes('timeout')) {
-          statusCode = HTTP.HTTP_GATEWAY_TIMEOUT; //504
+          statusCode = HttpStatus.GATEWAY_TIMEOUT; // 504
         } else if (error.message.includes('no autorizado')) {
-          statusCode = HTTP.HTTP_UNAUTHORIZED; //401
+          statusCode = HttpStatus.UNAUTHORIZED; // 401
         } else if (error.message.includes('API')) {
-          statusCode = HTTP.HTTP_BAD_GATEWAY; //502
+          statusCode = HttpStatus.BAD_GATEWAY; // 502
         } else if (error.message.includes('no disponible')) {
-          statusCode = HTTP.HTTP_SERVICE_UNAVAILABLE; //503
+          statusCode = HttpStatus.SERVICE_UNAVAILABLE; // 503
         }
       }
       
@@ -439,7 +438,7 @@ export class RssService {
       };
     }
   }
-
+/*
   async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
     try {
       if (!idAnilist || isNaN(idAnilist)) {
@@ -524,7 +523,7 @@ export class RssService {
       };
     }
   }
-
+*/
   async getRssFeed(page: number = 1, perPage: number = 10, withHevc: boolean = false): Promise<any[]> {
     try {
       const rssResponse = await fetch(this.RSS_URL);

@@ -10,12 +10,12 @@ export class RssController {
     getAnimes(@Query('quantity') quantity: number) {
     return this.rssService.findTrending(quantity);
   }
-
+ 
   @Get('list/:idAnilist')
   getAnime(@Param('idAnilist') idAnilist: number) {
     return this.rssService.findByAnilistId(idAnilist);
   }
-/*  
+/* 
   @Post('search/batch')
   searchAnimes(@Body() animes) {
     return this.rssService.searchArray(animes);
@@ -53,7 +53,7 @@ export class RssController {
     const includeHevc = withHevc === 'true';
     return this.rssService.getAllAnimeEpisodes(idAnilist, includeTorrents, includeHevc);
   }
-
+/*
   @Get('episodes/:idAnilist/:episode')
   getEpisodeData(
     @Param('idAnilist') idAnilist: number,
@@ -61,7 +61,7 @@ export class RssController {
   ) {
     return this.rssService.getEpisodeData(idAnilist, episode);
   }
-
+*/
   @Get('rss')
   getRssFeed(
   @Query('page') page: number = 1,
