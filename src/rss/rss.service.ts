@@ -320,7 +320,32 @@ export class RssService {
 
   async getAnimeRecommendations(idAnilist: number): Promise<any> {
     try {
+      if (!idAnilist || isNaN(idAnilist)) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          error: "Error obteniendo recomendaciones.",
+          message: "ID de Anilist inválido"
+        };
+      }
+
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
+
+      if (!animeInfo) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          error: "Error obteniendo recomendaciones.",
+          message: `No se encontró el anime con ID: ${idAnilist}`
+        };
+      }
+      
+      if (!animeInfo.genres || animeInfo.genres.length === 0) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          error: "Error obteniendo recomendaciones.",
+          message: "No hay suficiente información para generar recomendaciones"
+        };
+      }
+
       const genres = animeInfo.genres.map(genre => genre.toLowerCase());
       const variables = {
         genres: genres,
@@ -338,7 +363,24 @@ export class RssService {
         body: JSON.stringify({ query: query_anime.anime_recomendaciones, variables })
       });
 
+      if (!response.ok) {
+        return {
+          statusCode: HttpStatus.BAD_GATEWAY,
+          error: "Error obteniendo recomendaciones.",
+          message: "Error en la comunicación con la API externa"
+        };
+      }
+
       const data = await response.json();
+
+      if (!data.data || !data.data.Page || !data.data.Page.media) {
+        return {
+          statusCode: HttpStatus.BAD_GATEWAY,
+          error: "Error obteniendo recomendaciones.",
+          message: "Estructura de respuesta inválida desde la API externa"
+        };
+      }
+
       return data.data.Page.media.map(anime => ({
         id: anime.id || null,
         idAnilist: anime.id || null,
@@ -376,8 +418,27 @@ export class RssService {
         }
       }));
     } catch (error) {
-      console.error("Error obteniendo recomendaciones:", error);
-      return [];
+      let statusCode = HttpStatus.INTERNAL_SERVER_ERROR; 
+      
+      if (error.message) {
+        if (error.message.includes('no encontr')) {
+          statusCode = HttpStatus.NOT_FOUND; //404
+        } else if (error.message.includes('timeout')) {
+          statusCode = HttpStatus.GATEWAY_TIMEOUT; //504
+        } else if (error.message.includes('no autorizado')) {
+          statusCode = HttpStatus.UNAUTHORIZED; //401
+        } else if (error.message.includes('permiso')) {
+          statusCode = HttpStatus.FORBIDDEN; //403
+        } else if (error.message.includes('servicio no disponible')) {
+          statusCode = HttpStatus.SERVICE_UNAVAILABLE; //503
+        }
+      }
+
+        return {
+          statusCode,
+          error: "Error obteniendo recomendaciones.",
+          message: error.message
+        };
     }
   }
 
@@ -387,7 +448,23 @@ export class RssService {
     includeHevc: boolean = false
   ): Promise<any> {
     try {
+      if (!idAnilist || isNaN(idAnilist)) {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          error: "Error obteniendo episodios.",
+          message: "ID de Anilist inválido"
+        };
+      }
+
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
+
+      if (!animeInfo) {
+        return {
+          statusCode: HttpStatus.NOT_FOUND,
+          error: "Error obteniendo episodios.",
+          message: `No se encontró el anime con ID: ${idAnilist}`
+        };
+      }
 
       const anizipData = await this.fetchAnizipData(idAnilist, "all").catch(() => null);
       const episodes = Object.keys(anizipData.episodes).map(episode => {
@@ -430,12 +507,23 @@ export class RssService {
         };
       });
 
-      return { episodes };
+    return { episodes };
     } catch (error) {
-      return {
-        error: "Error obteniendo todos los episodios.",
-        message: error.message
-      };
+      let statusCode = HttpStatus.INTERNAL_SERVER_ERROR; //500
+    
+    if (error.message) {
+      if (error.message.includes('timeout')) {
+        statusCode = HttpStatus.GATEWAY_TIMEOUT; //504
+      } else if (error.message.includes('servicio no disponible')) {
+        statusCode = HttpStatus.SERVICE_UNAVAILABLE; //503
+      }
+    }
+    
+    return {
+      statusCode,
+      error: "Error obteniendo episodios.",
+      message: error.message
+    };
     }
   }
 
