@@ -438,27 +438,33 @@ export class RssService {
       };
     }
   }
-/*
+
   async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
     try {
       if (!idAnilist || isNaN(idAnilist)) {
         return {
-          statusCode: HTTP.HTTP_BAD_REQUEST,
+          statusCode: HttpStatus.BAD_REQUEST,
           error: "Error obteniendo datos del episodio.",
           message: "ID de Anilist inválido"
         };
       }
+
       const episodeNumber = parseInt(episode);
       if (isNaN(episodeNumber)) {
         return {
-          statusCode: HTTP.HTTP_BAD_REQUEST,
+          statusCode: HttpStatus.BAD_REQUEST,
           error: "Error obteniendo datos del episodio.",
           message: "El número de episodio debe ser un valor numérico"
         };
       }
+
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
       if (!animeInfo) {
-        throw new Error(`No se encontró información del anime para ID: ${idAnilist}`);
+         return { 
+          statusCode: HttpStatus.NOT_FOUND,
+          error: "Error obteniendo datos del episodio.",
+          message: `No se encontró información del anime para ID: ${idAnilist}`
+        };
       }
 
       const [anizipData, rssData, nyaaTorrents] = await Promise.all([
@@ -469,7 +475,7 @@ export class RssService {
 
       if (!anizipData && !rssData && (!nyaaTorrents || nyaaTorrents.length === 0)) {
         return {
-          statusCode: HTTP.HTTP_NOT_FOUND,
+          statusCode: HttpStatus.NOT_FOUND,
           error: "Error obteniendo datos del episodio.",
           message: `No se encontraron datos para el episodio ${episode} del anime ${animeInfo.title.romaji}`
         };
@@ -502,17 +508,21 @@ export class RssService {
         rating: anizipData?.rating || (rssData ? rssData["erai:rating"] : null) || null
       };
     } catch (error) {
-      let statusCode = HTTP.HTTP_INTERNAL_SERVER_ERROR; //500 
+      let statusCode = HttpStatus.INTERNAL_SERVER_ERROR; //500 
       
       if (error.message) {
         if (error.message.includes('No se encontró información del anime')) {
-          statusCode = HTTP.HTTP_NOT_FOUND; // 404
+          statusCode = HttpStatus.NOT_FOUND; //404
         } else if (error.message.includes('timeout')) {
-          statusCode = HTTP.HTTP_GATEWAY_TIMEOUT; // 504
+          statusCode = HttpStatus.GATEWAY_TIMEOUT; //504
         } else if (error.message.includes('no autorizado')) {
-          statusCode = HTTP.HTTP_UNAUTHORIZED; // 401
+          statusCode = HttpStatus.UNAUTHORIZED; //401
         } else if (error.message.includes('permiso')) {
-          statusCode = HTTP.HTTP_FORBIDDEN; // 403
+          statusCode = HttpStatus.FORBIDDEN; //403
+        } else if (error.message.includes('API externa')) {
+          statusCode = HttpStatus.BAD_GATEWAY; //502
+        } else if (error.message.includes('servicio no disponible')) {
+          statusCode = HttpStatus.SERVICE_UNAVAILABLE; //503
         }
     }
 
@@ -523,7 +533,7 @@ export class RssService {
       };
     }
   }
-*/
+
   async getRssFeed(page: number = 1, perPage: number = 10, withHevc: boolean = false): Promise<any[]> {
     try {
       const rssResponse = await fetch(this.RSS_URL);
