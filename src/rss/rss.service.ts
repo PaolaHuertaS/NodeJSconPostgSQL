@@ -1,4 +1,5 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import * as NestExceptions from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -146,35 +147,46 @@ export class RssService {
       return [];
     }
   }
+async findTrending(quantity?: number): Promise<any> {
+  try {
+    if (quantity !== undefined && (isNaN(quantity) || quantity < 1)) {
+      throw new NestExceptions.BadRequestException('El parámetro quantity debe ser un número positivo');
+    }
 
-  async findTrending(quantity?: number): Promise<any> {
     try {
-      if (quantity !== undefined && (isNaN(quantity) || quantity < 1)) {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          error: "Error obteniendo animes populares.",
-          message: "El parámetro quantity debe ser un número positivo"
-        };
+      const response = await fetch(this.api_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query_anime.anime_trending,
+          variables: { perPage: quantity || 10 }
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
       }
-      const animeInfo = await this.fetchAnimeInfo(0);
+      
+      const data = await response.json();
 
-      if (!animeInfo) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          error: "Error obteniendo animes populares.",
-          message: "No se encontraron animes populares"
-        };
+      if (!data || !data.data || !data.data.Page || !data.data.Page.media) {
+        console.error('Invalid response format from API:', data);
+        throw new NestExceptions.BadGatewayException('Formato de respuesta inválido desde la API externa');
+      }
+      
+      const animeList = data.data.Page.media;
+      
+      if (!animeList || animeList.length === 0) {
+        throw new NestExceptions.NotFoundException('No se encontraron animes populares');
       }
 
-      const allAnimes = Array.isArray(animeInfo) ? animeInfo : [animeInfo];
-      const trendingAnimes = quantity ? allAnimes.slice(0, quantity) : allAnimes;
+      const trendingAnimes = quantity ? animeList.slice(0, quantity) : animeList;
 
       if (trendingAnimes.length === 0) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          error: "Error obteniendo animes populares.",
-          message: "No se encontraron animes populares que cumplan con los criterios"
-        };
+        throw new NestExceptions.NotFoundException('No se encontraron animes populares que cumplan con los criterios');
       }
 
       const formattedAnimes = trendingAnimes.map(anime => ({
@@ -202,57 +214,54 @@ export class RssService {
         bannerImage: anime.bannerImage || null,
         synonyms: anime.synonyms || [],
         nextAiringEpisode: anime.nextAiringEpisode || null,
-        startDate: {
-          year: anime.startDate?.year || null,
-          month: anime.startDate?.month || null,
-          day: anime.startDate?.day || null
-        },
-        trailer: {
-          id: anime.trailer?.id || null,
-          site: anime.trailer?.site || null
-        }
+        startDate: anime.startDate ? {
+          year: anime.startDate.year || null,
+          month: anime.startDate.month || null,
+          day: anime.startDate.day || null
+        } : null,
+        trailer: anime.trailer ? {
+          id: anime.trailer.id || null,
+          site: anime.trailer.site || null
+        } : null
       }));
 
       return formattedAnimes;
-    } catch (error) {
-      let statusCode = HttpStatus.INTERNAL_SERVER_ERROR; // 500 
+    } catch (apiError) {
+      console.error('Error fetching trending anime:', apiError);
       
-      if (error.message) {
-        if (error.message.includes('timeout')) {
-          statusCode = HttpStatus.GATEWAY_TIMEOUT; // 504
-        } else if (error.message.includes('no autorizado')) {
-          statusCode = HttpStatus.UNAUTHORIZED; // 401
-        } else if (error.message.includes('API')) {
-          statusCode = HttpStatus.BAD_GATEWAY; // 502
-        } else if (error.message.includes('no disponible')) {
-          statusCode = HttpStatus.SERVICE_UNAVAILABLE; // 503
-        }
+      if (apiError instanceof NestExceptions.HttpException) {
+        throw apiError;
       }
       
-      return {
-        statusCode,
-        error: "Error obteniendo animes populares.",
-        message: error.message
-      };
+      throw new NestExceptions.BadGatewayException(`Error obteniendo animes populares: ${apiError.message}`);
     }
+  } catch (error) {
+    if (error instanceof NestExceptions.HttpException) {
+      throw error;
+    }
+
+    if (error.message) {
+      if (error.message.includes('timeout')) {
+        throw new NestExceptions.GatewayTimeoutException('Tiempo de espera agotado: ' + error.message);
+      } else if (error.message.includes('no disponible')) {
+        throw new NestExceptions.ServiceUnavailableException('Servicio no disponible: ' + error.message);
+      } else if (error.message.includes('API')) {
+        throw new NestExceptions.BadGatewayException('Error en la API externa: ' + error.message);
+      }
+    }
+
+    throw new NestExceptions.InternalServerErrorException('Error obteniendo animes populares: ' + (error.message || 'Error desconocido'));
   }
+}
 
   async findByAnilistId(idAnilist: number): Promise<any> {
     try {
       if (!idAnilist || isNaN(idAnilist)) {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          error: "Error obteniendo información del anime.",
-          message: "ID de Anilist inválido"
-        };
+        throw new NestExceptions.BadRequestException('ID de Anilist inválido');
       }
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
       if (!animeInfo) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          error: "Error obteniendo información del anime.",
-          message: `No se encontró el anime con ID: ${idAnilist}`
-        };
+        throw new NestExceptions.NotFoundException(`No se encontró el anime con ID: ${idAnilist}`);
       }
 
       return {
@@ -292,58 +301,38 @@ export class RssService {
         }
       };
     } catch (error) {
-     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR; // 500 
-      
-      if (error.message) {
-        if (error.message.includes('no encontr')) {
-          statusCode = HttpStatus.NOT_FOUND; // 404
-        } else if (error.message.includes('timeout')) {
-          statusCode = HttpStatus.GATEWAY_TIMEOUT; // 504
-        } else if (error.message.includes('no autorizado')) {
-          statusCode = HttpStatus.UNAUTHORIZED; // 401
-        } else if (error.message.includes('permiso')) {
-          statusCode = HttpStatus.FORBIDDEN; // 403
-        } else if (error.message.includes('API')) {
-          statusCode = HttpStatus.BAD_GATEWAY; // 502
-        } else if (error.message.includes('servicio no disponible')) {
-          statusCode = HttpStatus.SERVICE_UNAVAILABLE; // 503
-        }
-      }
-      
-      return {
-        statusCode,
-        error: "Error obteniendo información del anime.",
-        message: error.message
-      };
+    if (error instanceof NestExceptions.HttpException) {
+      throw error;
+    }
+
+    if (error.message && error.message.includes('no encontro')) {
+      throw new NestExceptions.NotFoundException(`No se encontró el anime con ID: ${idAnilist}`);
+    } else if (error.message && error.message.includes('timeout')) {
+      throw new NestExceptions.GatewayTimeoutException('Tiempo de espera agotado');
+    } else if (error.message && error.message.includes('API')) {
+      throw new NestExceptions.BadGatewayException('Error en la API externa');
+    } else if (error.message && error.message.includes('permiso')) {
+      throw new NestExceptions.ForbiddenException('Permiso denegado');
+    }
+  
+    throw new NestExceptions.InternalServerErrorException('Error obteniendo información del anime');
     }
   }
 
   async getAnimeRecommendations(idAnilist: number): Promise<any> {
     try {
       if (!idAnilist || isNaN(idAnilist)) {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          error: "Error obteniendo recomendaciones.",
-          message: "ID de Anilist inválido"
-        };
+        throw new NestExceptions.BadRequestException('ID de Anilist inválido');
       }
 
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
 
       if (!animeInfo) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          error: "Error obteniendo recomendaciones.",
-          message: `No se encontró el anime con ID: ${idAnilist}`
-        };
+        throw new NestExceptions.NotFoundException(`No se encontró el anime con ID: ${idAnilist}`);
       }
       
       if (!animeInfo.genres || animeInfo.genres.length === 0) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          error: "Error obteniendo recomendaciones.",
-          message: "No hay suficiente información para generar recomendaciones"
-        };
+        throw new NestExceptions.NotFoundException('No hay suficiente información para generar recomendaciones');
       }
 
       const genres = animeInfo.genres.map(genre => genre.toLowerCase());
@@ -364,21 +353,13 @@ export class RssService {
       });
 
       if (!response.ok) {
-        return {
-          statusCode: HttpStatus.BAD_GATEWAY,
-          error: "Error obteniendo recomendaciones.",
-          message: "Error en la comunicación con la API externa"
-        };
+        throw new NestExceptions.BadGatewayException('Error en la comunicación con la API externa');
       }
 
       const data = await response.json();
 
       if (!data.data || !data.data.Page || !data.data.Page.media) {
-        return {
-          statusCode: HttpStatus.BAD_GATEWAY,
-          error: "Error obteniendo recomendaciones.",
-          message: "Estructura de respuesta inválida desde la API externa"
-        };
+        throw new NestExceptions.BadGatewayException('Estructura de respuesta inválida desde la API externa');
       }
 
       return data.data.Page.media.map(anime => ({
@@ -418,141 +399,195 @@ export class RssService {
         }
       }));
     } catch (error) {
-      let statusCode = HttpStatus.INTERNAL_SERVER_ERROR; 
-      
-      if (error.message) {
-        if (error.message.includes('no encontr')) {
-          statusCode = HttpStatus.NOT_FOUND; //404
-        } else if (error.message.includes('timeout')) {
-          statusCode = HttpStatus.GATEWAY_TIMEOUT; //504
-        } else if (error.message.includes('no autorizado')) {
-          statusCode = HttpStatus.UNAUTHORIZED; //401
-        } else if (error.message.includes('permiso')) {
-          statusCode = HttpStatus.FORBIDDEN; //403
-        } else if (error.message.includes('servicio no disponible')) {
-          statusCode = HttpStatus.SERVICE_UNAVAILABLE; //503
-        }
-      }
+      if (error instanceof NestExceptions.HttpException) {
+      throw error;
+    }
 
-        return {
-          statusCode,
-          error: "Error obteniendo recomendaciones.",
-          message: error.message
-        };
+    if (error.message && error.message.includes('timeout')) {
+      throw new NestExceptions.GatewayTimeoutException('Tiempo de espera agotado al consultar la API externa');
+    }
+  
+    throw new NestExceptions.InternalServerErrorException('Error obteniendo recomendaciones');
     }
   }
 
-  async getAllAnimeEpisodes(
-    idAnilist: number,
-    includeTorrents: boolean = false,
-    includeHevc: boolean = false
-  ): Promise<any> {
+async getAllAnimeEpisodes(
+  idAnilist: number,
+  includeTorrents: boolean = false,
+  includeHevc: boolean = false
+): Promise<any> {
+  try {
+    if (!idAnilist || isNaN(idAnilist)) {
+      throw new NestExceptions.BadRequestException('ID de Anilist inválido');
+    }
+
+    let animeInfo;
     try {
-      if (!idAnilist || isNaN(idAnilist)) {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          error: "Error obteniendo episodios.",
-          message: "ID de Anilist inválido"
-        };
-      }
-
-      const animeInfo = await this.fetchAnimeInfo(idAnilist);
-
-      if (!animeInfo) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          error: "Error obteniendo episodios.",
-          message: `No se encontró el anime con ID: ${idAnilist}`
-        };
-      }
-
-      const anizipData = await this.fetchAnizipData(idAnilist, "all").catch(() => null);
-      const episodes = Object.keys(anizipData.episodes).map(episode => {
-        const episodeData = anizipData.episodes[episode];
-
-        let torrents = null;
-        if (includeTorrents) {
-          torrents = this.fetchNyaaTorrents(animeInfo.title.romaji, parseInt(episode))
-            .then(torrents => torrents.filter(torrent => {
-              if (includeHevc) {
-                return torrent.title.toLowerCase().includes("hevc");
-              }
-              return true;
-            }))
-            .catch(() => []);
-        }
-
-        return {
-          tvdbShowId: episodeData.tvdbShowId || null,
-          tvdbId: episodeData.tvdbId || null,
-          seasonNumber: episodeData.seasonNumber || 1,
-          episodeNumber: episodeData.episodeNumber || null,
-          absoluteEpisodeNumber: episodeData.absoluteEpisodeNumber || null,
-          episode: episode,
-          anidbEid: episodeData.anidbEid || null,
-          airDate: episodeData.airDate || null,
-          airDateUtc: episodeData.airDateUtc || null,
-          runtime: episodeData.runtime || null,
-          length: episodeData.length || null,
-          airdate: episodeData.airdate || null,
-          title: {
-            ja: episodeData.title?.ja || null,
-            en: episodeData.title?.en || null,
-            "x-jat": episodeData.title?.["x-jat"] || null
-          },
-          image: episodeData.image || null,
-          rating: episodeData.rating || null,
-          finaleType: episode === Object.keys(anizipData.episodes).length.toString() ? "final" : null,
-          torrents: includeTorrents ? torrents : null
-        };
+      const response = await fetch(this.api_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query_anime.anime_episodio,
+          variables: { id: idAnilist }
+        }),
       });
+      
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.errors && data.errors.length > 0) {
+        throw new Error(data.errors[0].message || 'API Error');
+      }
+      
+      animeInfo = data.data?.Media;
+      
+      if (!animeInfo) {
+        throw new NestExceptions.NotFoundException(`No se encontró el anime con ID: ${idAnilist}`);
+      }
+    } catch (animeError) {
+      console.error(`Error fetching anime info for ID ${idAnilist}:`, animeError);
+      
+      if (animeError instanceof NestExceptions.HttpException) {
+        throw animeError;
+      }
+      
+      throw new NestExceptions.BadGatewayException('Error al obtener información del anime desde la API externa');
+    }
 
-    return { episodes };
-    } catch (error) {
-      let statusCode = HttpStatus.INTERNAL_SERVER_ERROR; //500
+    let anizipData;
+    try {
+      const anizipResponse = await fetch(`https://api.ani.zip/mappings?anilist_id=${idAnilist}`);
+      
+      if (!anizipResponse.ok) {
+        throw new Error(`AniZip API responded with status: ${anizipResponse.status}`);
+      }
+      
+      anizipData = await anizipResponse.json(); 
+      if (!anizipData) {
+        throw new NestExceptions.NotFoundException(`No se encontraron datos para el anime con ID: ${idAnilist}`);
+      }
+   
+      if (!anizipData.episodes || Object.keys(anizipData.episodes).length === 0) {
+        throw new NestExceptions.NotFoundException(`No se encontraron episodios para el anime con ID: ${idAnilist}`);
+      }
+    } catch (anizipError) {
+      console.error(`Error fetching AniZip data for ID ${idAnilist}:`, anizipError);
+      
+      if (anizipError instanceof NestExceptions.HttpException) {
+        throw anizipError;
+      }
+      
+      throw new NestExceptions.BadGatewayException('Error al obtener datos de episodios desde AniZip');
+    }
+
+     const episodes = [];
     
+    for (const episodeKey of Object.keys(anizipData.episodes)) {
+      try {
+        const episodeData = anizipData.episodes[episodeKey];
+        
+        const episodeObj: any = {
+          tvdbShowId: episodeData?.tvdbShowId || null,
+          tvdbId: episodeData?.tvdbId || null,
+          seasonNumber: episodeData?.seasonNumber || 1,
+          episodeNumber: episodeData?.episodeNumber || null,
+          absoluteEpisodeNumber: episodeData?.absoluteEpisodeNumber || null,
+          episode: episodeKey,
+          anidbEid: episodeData?.anidbEid || null,
+          airDate: episodeData?.airDate || null,
+          airDateUtc: episodeData?.airDateUtc || null,
+          runtime: episodeData?.runtime || null,
+          length: episodeData?.length || null,
+          airdate: episodeData?.airdate || null,
+          title: {
+            ja: episodeData?.title?.ja || null,
+            en: episodeData?.title?.en || null,
+            "x-jat": episodeData?.title?.["x-jat"] || null
+          },
+          image: episodeData?.image || null,
+          rating: episodeData?.rating || null,
+          finaleType: episodeKey === Object.keys(anizipData.episodes).length.toString() ? "final" : null
+        };
+      
+        if (includeTorrents) {
+          try {
+            const episodeNumber = parseInt(episodeKey);
+            
+            if (!isNaN(episodeNumber) && animeInfo?.title?.romaji) {
+              console.log(`Fetching torrents for ${animeInfo.title.romaji} episode ${episodeNumber}`);
+              
+              const torrents = await this.fetchNyaaTorrents(animeInfo.title.romaji, episodeNumber);
+              
+              if (torrents && torrents.length > 0) {
+                episodeObj.torrents = includeHevc 
+                  ? torrents.filter(t => t.title.toLowerCase().includes("hevc")) || torrents
+                  : torrents;
+              }
+            }
+          } catch (torrentError) {
+            console.error(`Error fetching torrents for episode ${episodeKey}:`, torrentError);
+          }
+        }
+        
+        episodes.push(episodeObj);
+      } catch (episodeError) {
+        console.error(`Error processing episode ${episodeKey}:`, episodeError);
+      }
+    }
+    if (episodes.length === 0) {
+      throw new NestExceptions.NotFoundException(`No se encontraron episodios para el anime con ID: ${idAnilist}`);
+    }
+
+    return {
+      anime: {
+        id: animeInfo.id,
+        title: animeInfo.title || { romaji: null, english: null, native: null },
+        episodes: animeInfo.episodes || null,
+        status: animeInfo.status || null,
+        coverImage: animeInfo.coverImage || { large: null, medium: null, extraLarge: null },
+        bannerImage: animeInfo.bannerImage || null
+      },
+      episodes: episodes
+    };
+  } catch (error) {
+    console.error('Error in getAllAnimeEpisodes:', error);
+    
+    if (error instanceof NestExceptions.HttpException) {
+      throw error;
+    }
+
     if (error.message) {
       if (error.message.includes('timeout')) {
-        statusCode = HttpStatus.GATEWAY_TIMEOUT; //504
-      } else if (error.message.includes('servicio no disponible')) {
-        statusCode = HttpStatus.SERVICE_UNAVAILABLE; //503
+        throw new NestExceptions.GatewayTimeoutException('Tiempo de espera agotado');
+      } else if (error.message.includes('no disponible')) {
+        throw new NestExceptions.ServiceUnavailableException('Servicio externo no disponible');
       }
     }
     
-    return {
-      statusCode,
-      error: "Error obteniendo episodios.",
-      message: error.message
-    };
-    }
+    throw new NestExceptions.InternalServerErrorException('Error al procesar la solicitud de episodios');
   }
+}
 
   async getEpisodeData(idAnilist: number, episode: string): Promise<any> {
     try {
       if (!idAnilist || isNaN(idAnilist)) {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          error: "Error obteniendo datos del episodio.",
-          message: "ID de Anilist inválido"
-        };
+        throw new NestExceptions.BadRequestException('ID de Anilist inválido');
       }
 
       const episodeNumber = parseInt(episode);
       if (isNaN(episodeNumber)) {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          error: "Error obteniendo datos del episodio.",
-          message: "El número de episodio debe ser un valor numérico"
-        };
+         throw new NestExceptions.BadRequestException('El número de episodio debe ser un valor numérico');
       }
 
       const animeInfo = await this.fetchAnimeInfo(idAnilist);
       if (!animeInfo) {
-         return { 
-          statusCode: HttpStatus.NOT_FOUND,
-          error: "Error obteniendo datos del episodio.",
-          message: `No se encontró información del anime para ID: ${idAnilist}`
-        };
+          throw new NestExceptions.NotFoundException(`No se encontró información del anime para ID: ${idAnilist}`);
       }
 
       const [anizipData, rssData, nyaaTorrents] = await Promise.all([
@@ -562,11 +597,7 @@ export class RssService {
       ]);
 
       if (!anizipData && !rssData && (!nyaaTorrents || nyaaTorrents.length === 0)) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          error: "Error obteniendo datos del episodio.",
-          message: `No se encontraron datos para el episodio ${episode} del anime ${animeInfo.title.romaji}`
-        };
+        throw new NestExceptions.NotFoundException(`No se encontraron datos para el episodio ${episode} del anime ${animeInfo.title.romaji}`);
       }
 
       return {
@@ -596,35 +627,39 @@ export class RssService {
         rating: anizipData?.rating || (rssData ? rssData["erai:rating"] : null) || null
       };
     } catch (error) {
-      let statusCode = HttpStatus.INTERNAL_SERVER_ERROR; //500 
-      
-      if (error.message) {
-        if (error.message.includes('No se encontró información del anime')) {
-          statusCode = HttpStatus.NOT_FOUND; //404
-        } else if (error.message.includes('timeout')) {
-          statusCode = HttpStatus.GATEWAY_TIMEOUT; //504
-        } else if (error.message.includes('no autorizado')) {
-          statusCode = HttpStatus.UNAUTHORIZED; //401
-        } else if (error.message.includes('permiso')) {
-          statusCode = HttpStatus.FORBIDDEN; //403
-        } else if (error.message.includes('API externa')) {
-          statusCode = HttpStatus.BAD_GATEWAY; //502
-        } else if (error.message.includes('servicio no disponible')) {
-          statusCode = HttpStatus.SERVICE_UNAVAILABLE; //503
-        }
+     if (error instanceof NestExceptions.HttpException) {
+      throw error;
     }
 
-    return {
-      statusCode,
-      error: "Error obteniendo datos del episodio.",
-      message: error.message
-      };
+    if (error.message && error.message.includes('No se encontró información')) {
+      throw new NestExceptions.NotFoundException(error.message);
+    } else if (error.message && error.message.includes('timeout')) {
+      throw new NestExceptions.GatewayTimeoutException('Tiempo de espera agotado');
+    } else if (error.message && error.message.includes('no autorizado')) {
+      throw new NestExceptions.UnauthorizedException('No autorizado para acceder a este recurso');
+    } else if (error.message && error.message.includes('permiso')) {
+      throw new NestExceptions.ForbiddenException('No tiene permisos para acceder a este recurso');
+    } else if (error.message && error.message.includes('API externa')) {
+      throw new NestExceptions.BadGatewayException('Error en la API externa');
+    } else if (error.message && error.message.includes('no disponible')) {
+      throw new NestExceptions.ServiceUnavailableException('Servicio no disponible');
     }
-  }
+    
+    throw new NestExceptions.InternalServerErrorException('Error obteniendo datos del episodio');
+    }
+    }
 
   async getRssFeed(page: number = 1, perPage: number = 10, withHevc: boolean = false): Promise<any[]> {
     try {
+      if (!page || isNaN(page) || page < 1) {
+      throw new NestExceptions.BadRequestException('El número de página debe ser un número positivo');
+    }
+
       const rssResponse = await fetch(this.RSS_URL);
+      if (!rssResponse.ok) {
+        throw new NestExceptions.BadGatewayException(`Error al obtener feed RSS: ${rssResponse.status} ${rssResponse.statusText}`);
+      }
+
       const rssText = await rssResponse.text();
       const rssData = this.parser.parse(rssText);
 
@@ -811,8 +846,17 @@ export class RssService {
 
       return results;
     } catch (error) {
-      console.error("Error en getRssFeed:", error);
-      return [];
+      if (error instanceof NestExceptions.HttpException) {
+      throw error;
+    }
+
+    if (error.message && error.message.includes('timeout')) {
+      throw new NestExceptions.GatewayTimeoutException('Tiempo de espera agotado');
+    } else if (error.message && error.message.includes('no disponible')) {
+      throw new NestExceptions.ServiceUnavailableException('Servicio no disponible');
+    }
+
+    throw new NestExceptions.InternalServerErrorException('Error obteniendo feed RSS');
     }
   }
 
