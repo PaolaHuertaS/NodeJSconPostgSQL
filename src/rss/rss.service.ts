@@ -7,6 +7,7 @@ import { Anime } from '../book/entities/rss.entity';
 import { query_anime } from './query';
 import { si } from 'nyaapi';
 import  anitomyscript = require('anitomyscript');
+import { ClaudeService } from 'src/claude/claude.service';
 
 @Injectable()
 export class RssService {
@@ -17,7 +18,8 @@ export class RssService {
 
   constructor(
     @InjectRepository(Anime)
-    private animeRepository: Repository<Anime>
+    private animeRepository: Repository<Anime>,
+    private claudeService: ClaudeService,
   ) { }
 
   private readonly RSS_URL = 'https://www.erai-raws.info/episodes/feed/?res=1080p&type=torrent&subs%5B0%5D=mx&token=eb4108a77108d2c5c14db7202458aacb';
@@ -875,5 +877,27 @@ async getAllAnimeEpisodes(
     Object.assign(anime, updateAnimeDto);
     return this.animeRepository.save(anime);
   }
+
+  async getAnimeAnalisis(idAnilist: number): Promise<any> {
+  try {
+    const animeData = await this.findByAnilistId(idAnilist);
+    
+    if (!animeData) {
+      throw new NestExceptions.NotFoundException(`No se encontró el anime con ID: ${idAnilist}`);
+    }
+
+    const analysis = await this.claudeService.analizaAnime(animeData);
+    
+    return {
+      anime: animeData,
+      claudeAnalysis: analysis
+    };
+  } catch (error) {
+    if (error instanceof NestExceptions.HttpException) {
+      throw error;
+    }
+    throw new NestExceptions.InternalServerErrorException('Error al obtener análisis del anime');
+  }
+}
 
 }

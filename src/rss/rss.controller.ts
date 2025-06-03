@@ -79,4 +79,9 @@ export class RssController {
    ) {
   return this.rssService.updateAnime(idAnilist, updateAnimeDto);
    }
+
+  @Get('analysis/:idAnilist')
+  async getAnimeAnalysis(@Param('idAnilist') idAnilist: number) {
+  return this.rssService.getAnimeAnalisis(idAnilist);
+  }
 }
