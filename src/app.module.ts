@@ -9,7 +9,8 @@ import { readFileSync } from 'fs';
 import { GraphqlModule } from './graphql/graphql.module';
 import { RssModule } from './rss/rss.module';
 import { Anime } from './book/entities/rss.entity';
-import { ClaudeModule } from './claude/claude.module';
+import { GeminiModule } from './claude/claude.module';
+import { TranslationModule } from './traduccion/traduccion.module';
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { ClaudeModule } from './claude/claude.module';
     BookModule,
     GraphqlModule,
     RssModule,
-    ClaudeModule,
+    GeminiModule,
+    TranslationModule
   ],
   controllers: [AppController],
   providers: [AppService],

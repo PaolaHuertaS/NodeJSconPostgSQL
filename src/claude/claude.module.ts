@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ClaudeService } from './claude.service';
-import { ClaudeController } from './claude.controller';
+import { GeminiS } from './claude.service';
+import { GeminiController } from './claude.controller';
 
 @Module({
-  controllers: [ClaudeController],
-  providers: [ClaudeService],
-  exports: [ClaudeService], 
+  controllers: [GeminiController],
+  providers: [GeminiS],
+  exports: [GeminiS], 
 })
-export class ClaudeModule {}
+export class GeminiModule {}
 

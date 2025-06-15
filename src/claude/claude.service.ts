@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import * as NestExceptions from '@nestjs/common';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 @Injectable()
-export class ClaudeService {
+export class GeminiS {
   private geminiApiKey: string | null = null;
   private geminiApiUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
 
@@ -229,4 +228,41 @@ export class ClaudeService {
       throw new NestExceptions.InternalServerErrorException('Error al explicar el contexto cultural');
     }
   }
+
+async analizarPerso(characterName: string, animeTitle: string, traits?: string[]): Promise<any> {
+  try {
+    const systemPrompt = `Eres un psicólogo especializado en personajes de anime.
+    Realiza un análisis psicológico profundo incluyendo:
+    1. Personalidad y motivaciones
+    2. Traumas y desarrollo
+    3. Relaciones con otros personajes
+    4. Arco narrativo
+    5. Simbolismo del personaje`;
+
+    const message = `Analiza profundamente este personaje de anime:
+
+ PERSONAJE: ${characterName}
+ ANIME: ${animeTitle}
+${traits ? ` RASGOS CONOCIDOS: ${traits.join(', ')}` : ''}
+
+Proporciona:
+- Perfil psicológico completo
+- Análisis de sus motivaciones
+- Evolución a lo largo de la serie
+- Impacto en la narrativa
+- Comparación con arquetipos clásicos`;
+
+    const response = await this.chatGemini(message, systemPrompt);
+
+    return {
+      characterAnalysis: response.response,
+      character: characterName,
+      anime: animeTitle,
+      traits: traits || [],
+      aiProvider: response.provider
+    };
+  } catch (error: any) {
+    throw new NestExceptions.InternalServerErrorException('Error analizando personaje');
+  }
+}
 }

@@ -4,10 +4,11 @@ import { RssController } from './rss.controller';
 import { Anime } from '../book/entities/rss.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ClaudeModule } from '../claude/claude.module';
+import { GeminiModule } from '../claude/claude.module';
+import { TranslationModule } from '../traduccion/traduccion.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Anime]), CacheModule.register(),ClaudeModule],
+  imports: [TypeOrmModule.forFeature([Anime]), CacheModule.register(),GeminiModule, TranslationModule],
   controllers: [RssController],
   providers: [RssService, Logger]
 })

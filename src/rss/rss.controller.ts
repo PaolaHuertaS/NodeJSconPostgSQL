@@ -1,48 +1,51 @@
 import { Controller, Get, Param, Query, Post, Body, Put } from '@nestjs/common';
 import { RssService } from './rss.service';
 import { Anime } from '../book/entities/rss.entity';
+import { TranslationService } from '../traduccion/traduccion.service';
 
 @Controller('anime')
 export class RssController {
-  constructor(private readonly rssService: RssService) { }
+  constructor(private readonly rssService: RssService,
+    private readonly translationService: TranslationService,
+  ) { }
 
   @Get('list')
-    getAnimes(@Query('quantity') quantity: number) {
+  getAnimes(@Query('quantity') quantity: number) {
     return this.rssService.findTrending(quantity);
   }
- 
+
   @Get('list/:idAnilist')
   getAnime(@Param('idAnilist') idAnilist: number) {
     return this.rssService.findByAnilistId(idAnilist);
   }
-/* 
-  @Post('search/batch')
-  searchAnimes(@Body() animes) {
-    return this.rssService.searchArray(animes);
-  }
-*/
-/*
-  @Post('search')
-  searchAnime(
-  @Body() 
-  {
-    animeName,
-    limit,
-    status
-    }: {
-    animeName: string
-    limit: number
-    status?: string
+  /* 
+    @Post('search/batch')
+    searchAnimes(@Body() animes) {
+      return this.rssService.searchArray(animes);
     }
-  ) {
-  return this.rssService.search({ animeName, limitResult: limit, status })
-  }
-*/
+  */
+  /*
+    @Post('search')
+    searchAnime(
+    @Body() 
+    {
+      animeName,
+      limit,
+      status
+      }: {
+      animeName: string
+      limit: number
+      status?: string
+      }
+    ) {
+    return this.rssService.search({ animeName, limitResult: limit, status })
+    }
+  */
   @Get('recommendations/:idAnilist')
   getAnimeRecommendations(@Param('idAnilist') idAnilist: number) {
-  return this.rssService.getAnimeRecommendations(idAnilist);
+    return this.rssService.getAnimeRecommendations(idAnilist);
   }
- 
+
   @Get('episodes/:idAnilist')
   getAllAnimeEpisodes(
     @Param('idAnilist') idAnilist: number,
@@ -64,9 +67,9 @@ export class RssController {
 
   @Get('rss')
   getRssFeed(
-  @Query('page') page: number = 1,
-  @Query('perPage') perPage: number = 10,
-  @Query('withHevc') withHevc: string
+    @Query('page') page: number = 1,
+    @Query('perPage') perPage: number = 10,
+    @Query('withHevc') withHevc: string
   ) {
     const includeHevc = withHevc === 'true';
     return this.rssService.getRssFeed(page, perPage, includeHevc);
@@ -74,14 +77,42 @@ export class RssController {
 
   @Put(':idAnilist')
   async updateAnime(
-  @Param('idAnilist') idAnilist: number,
-  @Body() updateAnimeDto: Partial<Anime>
-   ) {
-  return this.rssService.updateAnime(idAnilist, updateAnimeDto);
-   }
+    @Param('idAnilist') idAnilist: number,
+    @Body() updateAnimeDto: Partial<Anime>
+  ) {
+    return this.rssService.updateAnime(idAnilist, updateAnimeDto);
+  }
 
   @Get('analysis/:idAnilist')
   async getAnimeAnalysis(@Param('idAnilist') idAnilist: number) {
-  return this.rssService.getAnimeAnalisis(idAnilist);
+    return this.rssService.getAnimeAnalisis(idAnilist);
+  }
+
+  @Post('translate/:idAnilist')
+  async translateAnime(@Param('idAnilist') idAnilist: number) {
+    try {
+      // Primero asegurar que el anime existe en nuestra BD
+      const animeData = await this.rssService.findByAnilistId(idAnilist);
+
+      if (!animeData) {
+        throw new Error(`Anime con ID ${idAnilist} no encontrado`);
+      }
+
+      // Guardar el anime en la base de datos si no existe
+      await this.rssService.saveAnimeToDatabase(animeData);
+
+      // Luego traducir
+      const translationResult = await this.translationService.translateAnimeDescription(idAnilist);
+
+      return {
+        anime: animeData,
+        translation: translationResult
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 }
