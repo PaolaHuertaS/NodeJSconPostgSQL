@@ -63,4 +63,28 @@ export class Anime {
     id: string
     site: string
   }
+ 
+  @Column({ type: 'text', nullable: true })
+  description_de: string  // Alemán
+
+  @Column({ default: false })
+  descriptionTranslated_de: boolean
+
+  @Column({ type: 'text', nullable: true })
+  description_pt: string  // Portugués brasileño
+
+  @Column({ default: false })
+  descriptionTranslated_pt: boolean
+
+  @Column({ type: 'text', nullable: true })
+  description_it: string  // Italiano
+
+  @Column({ default: false })
+  descriptionTranslated_it: boolean
+
+  @Column({ type: 'text', nullable: true })
+  description_fr: string  // Francés
+
+  @Column({ default: false })
+  descriptionTranslated_fr: boolean
 }

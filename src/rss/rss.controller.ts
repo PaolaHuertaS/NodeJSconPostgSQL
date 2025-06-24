@@ -115,4 +115,92 @@ export class RssController {
       };
     }
   }
+
+  @Post('translate/:idAnilist/german')
+  async translateToGerman(@Param('idAnilist') idAnilist: number) {
+    try {
+      const animeData = await this.rssService.findByAnilistId(idAnilist);
+      if (!animeData) {
+        throw new Error(`Anime con ID ${idAnilist} no encontrado`);
+      }
+      await this.rssService.saveAnimeToDatabase(animeData);
+      const translationResult = await this.translationService.translateToGerman(idAnilist);
+      
+      return {
+        anime: animeData,
+        translation: translationResult
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  @Post('translate/:idAnilist/portuguese')
+  async translateToPortuguese(@Param('idAnilist') idAnilist: number) {
+    try {
+      const animeData = await this.rssService.findByAnilistId(idAnilist);
+      if (!animeData) {
+        throw new Error(`Anime con ID ${idAnilist} no encontrado`);
+      }
+      await this.rssService.saveAnimeToDatabase(animeData);
+      const translationResult = await this.translationService.translateToPortuguese(idAnilist);
+      
+      return {
+        anime: animeData,
+        translation: translationResult
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  @Post('translate/:idAnilist/italian')
+  async translateToItalian(@Param('idAnilist') idAnilist: number) {
+    try {
+      const animeData = await this.rssService.findByAnilistId(idAnilist);
+      if (!animeData) {
+        throw new Error(`Anime con ID ${idAnilist} no encontrado`);
+      }
+      await this.rssService.saveAnimeToDatabase(animeData);
+      const translationResult = await this.translationService.translateToItalian(idAnilist);
+      
+      return {
+        anime: animeData,
+        translation: translationResult
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  @Post('translate/:idAnilist/french')
+  async translateToFrench(@Param('idAnilist') idAnilist: number) {
+    try {
+      const animeData = await this.rssService.findByAnilistId(idAnilist);
+      if (!animeData) {
+        throw new Error(`Anime con ID ${idAnilist} no encontrado`);
+      }
+      await this.rssService.saveAnimeToDatabase(animeData);
+      const translationResult = await this.translationService.translateToFrench(idAnilist);
+      
+      return {
+        anime: animeData,
+        translation: translationResult
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 }
