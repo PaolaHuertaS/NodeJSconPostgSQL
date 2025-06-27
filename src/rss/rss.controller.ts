@@ -2,11 +2,13 @@ import { Controller, Get, Param, Query, Post, Body, Put } from '@nestjs/common';
 import { RssService } from './rss.service';
 import { Anime } from '../book/entities/rss.entity';
 import { TranslationService } from '../traduccion/traduccion.service';
+import { GeminiS } from '../claude/claude.service'
 
 @Controller('anime')
 export class RssController {
   constructor(private readonly rssService: RssService,
     private readonly translationService: TranslationService,
+    private readonly geminiService: GeminiS,
   ) { }
 
   @Get('list')
@@ -203,4 +205,35 @@ export class RssController {
       };
     }
   }
+
+   @Get('sinopsiscorta/:idAnilist')
+  async getShortSynopsis(@Param('idAnilist') idAnilist: number) {
+  try {
+    const animeData = await this.rssService.findByAnilistId(idAnilist);
+    
+    if (!animeData) {
+      throw new Error(`Anime con ID ${idAnilist} no encontrado`);
+    }
+    await this.rssService.saveAnimeToDatabase(animeData);
+
+    const synopsisResult = await this.geminiService.generarSinopsisCorta(animeData);
+
+    return {
+      anime: {
+        id: animeData.id,
+        idAnilist: animeData.idAnilist,
+        title: animeData.title,
+        coverImage: animeData.coverImage,
+        genres: animeData.genres
+      },
+      synopsis: synopsisResult
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
 }

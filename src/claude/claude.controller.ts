@@ -36,5 +36,13 @@ export class GeminiController {
   traits?: string[];
   }) {
   return this.GeminiS.analizarPerso(body.characterName, body.animeTitle, body.traits);
-}
+  }
+
+  @Post('sinopsiscorta')
+  async generateShortSynopsis(@Body() body: { animeData: any }) {
+    if (!body.animeData) {
+      throw new Error('Se requiere información del anime en el campo animeData');
+    }
+    return await this.GeminiS.generarSinopsisCorta(body.animeData);
+  }
 }

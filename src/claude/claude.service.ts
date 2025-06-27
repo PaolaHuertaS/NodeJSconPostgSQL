@@ -265,4 +265,32 @@ Proporciona:
     throw new NestExceptions.InternalServerErrorException('Error analizando personaje');
   }
 }
+
+  async generarSinopsisCorta(animeData: any): Promise<any> {
+    try {
+      const systemPrompt = `Eres un experto en marketing de anime. Crea una sinopsis corta y atractiva para redes sociales.
+      
+      Requisitos:
+      - Máximo 280 caracteres (como Twitter)
+      - Debe ser emocionante y generar interés
+      - Incluye elementos clave sin spoilers
+      - Usa un tono persuasivo`;
+
+      const userMessage = `Crea una sinopsis corta para este anime:
+
+      TÍTULO: ${animeData.title?.romaji || animeData.title?.english}
+      GÉNEROS: ${animeData.genres?.join(', ') || 'No especificados'}
+      DESCRIPCIÓN ORIGINAL: ${animeData.description?.substring(0, 500)}...`;
+
+      const response = await this.chatGemini(userMessage, systemPrompt);
+
+      return {
+        shortSynopsis: response.response,
+        characterCount: response.response.length,
+        aiProvider: response.provider
+      };
+    } catch (error) {
+      throw new Error('Error generando sinopsis corta');
+    }
+  }
 }
