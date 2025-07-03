@@ -6,8 +6,8 @@ import { PromptService } from '../prompts/prompt.service';
 export class GeminiS {
   private geminiApiKey: string | null = null;
   private geminiApiUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
-  private promptService: PromptService;
-  constructor() {
+
+  constructor(private readonly promptService: PromptService) {
     this.geminiApiKey = process.env.GEMINI_API_KEY || null;
     
     if (this.geminiApiKey) {
