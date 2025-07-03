@@ -6,10 +6,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { GeminiModule } from '../claude/claude.module';
 import { TranslationModule } from '../traduccion/traduccion.module';
+import { PromptService } from 'src/prompts/prompt.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Anime]), CacheModule.register(),GeminiModule, TranslationModule],
   controllers: [RssController],
-  providers: [RssService, Logger]
+  providers: [RssService, Logger, PromptService]
 })
 export class RssModule {}

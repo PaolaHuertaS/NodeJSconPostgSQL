@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import * as NestExceptions from '@nestjs/common';
+import { PromptService } from '../prompts/prompt.service';
 
 @Injectable()
 export class GeminiS {
   private geminiApiKey: string | null = null;
   private geminiApiUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
-
+  private promptService: PromptService;
   constructor() {
     this.geminiApiKey = process.env.GEMINI_API_KEY || null;
-
+    
     if (this.geminiApiKey) {
       console.log('✅ Gemini API Key configurada correctamente');
     } else {
@@ -137,12 +138,7 @@ export class GeminiS {
   // Métodos de análisis, recomendaciones y contexto cultural (sin cambios en la lógica)
   async analizaAnime(animeData: any): Promise<any> {
     try {
-      const systemPrompt = `Eres un experto en anime que proporciona análisis detallados y recomendaciones. 
-      Analiza la información del anime proporcionada y proporciona:
-      1. Un resumen conciso
-      2. Puntos destacados
-      3. Audiencia objetivo
-      4. Comparaciones con otros animes similares si es relevante`;
+     const systemPrompt = this.promptService.loadPrompt('anime-analisis');
 
       const userMessage = `Analiza este anime:
       Título: ${animeData.title?.romaji || animeData.title?.english || 'Sin título'}
@@ -231,26 +227,19 @@ export class GeminiS {
 
 async analizarPerso(characterName: string, animeTitle: string, traits?: string[]): Promise<any> {
   try {
-    const systemPrompt = `Eres un psicólogo especializado en personajes de anime.
-    Realiza un análisis psicológico profundo incluyendo:
-    1. Personalidad y motivaciones
-    2. Traumas y desarrollo
-    3. Relaciones con otros personajes
-    4. Arco narrativo
-    5. Simbolismo del personaje`;
+   const systemPrompt = this.promptService.loadPrompt('personaje-analisis');
 
     const message = `Analiza profundamente este personaje de anime:
+    PERSONAJE: ${characterName}
+    ANIME: ${animeTitle}
+    ${traits ? ` RASGOS CONOCIDOS: ${traits.join(', ')}` : ''}
 
- PERSONAJE: ${characterName}
- ANIME: ${animeTitle}
-${traits ? ` RASGOS CONOCIDOS: ${traits.join(', ')}` : ''}
-
-Proporciona:
-- Perfil psicológico completo
-- Análisis de sus motivaciones
-- Evolución a lo largo de la serie
-- Impacto en la narrativa
-- Comparación con arquetipos clásicos`;
+  Proporciona:
+  - Perfil psicológico completo
+  - Análisis de sus motivaciones
+  - Evolución a lo largo de la serie
+  - Impacto en la narrativa
+  - Comparación con arquetipos clásicos`;
 
     const response = await this.chatGemini(message, systemPrompt);
 
@@ -268,13 +257,7 @@ Proporciona:
 
   async generarSinopsisCorta(animeData: any): Promise<any> {
     try {
-      const systemPrompt = `Eres un experto en marketing de anime. Crea una sinopsis corta y atractiva para redes sociales.
-      
-      Requisitos:
-      - Máximo 280 caracteres (como Twitter)
-      - Debe ser emocionante y generar interés
-      - Incluye elementos clave sin spoilers
-      - Usa un tono persuasivo`;
+      const systemPrompt = this.promptService.loadPrompt('sinopsis-corta');
 
       const userMessage = `Crea una sinopsis corta para este anime:
 

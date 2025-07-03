@@ -3,6 +3,7 @@ import { GeminiS } from '../claude/claude.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Anime } from '../book/entities/rss.entity';
+import { PromptService } from '../prompts/prompt.service';
 
 @Injectable()
 export class TranslationService {
@@ -10,6 +11,7 @@ export class TranslationService {
     private claudeService: GeminiS,
     @InjectRepository(Anime)
     private animeRepository: Repository<Anime>,
+    private promptService: PromptService
   ) {}
 
   async translateAnimeDescription(animeId: number): Promise<any> {
@@ -31,14 +33,7 @@ export class TranslationService {
         };
       }
 
-      // Prompt específico para traducción de anime
-      const systemPrompt = `Eres un traductor especializado en anime. Traduce la siguiente descripción del inglés al español de manera natural y fluida.
-
-            Reglas:
-            - Mantén el tono original
-            - NO traduzcas nombres de personajes, lugares o técnicas especiales
-            - Preserva términos japoneses como -san, -kun, -chan
-            - Usa español neutro y comprensible`;
+      const systemPrompt = this.promptService.loadPrompt('traduccir-españo');
 
       const userMessage = `Traduce esta descripción de anime al español:
 
@@ -92,13 +87,7 @@ export class TranslationService {
         };
       }
 
-      const systemPrompt = `Eres un traductor especializado en anime. Traduce la siguiente descripción al alemán de manera natural y fluida.
-
-      Reglas:
-    - Mantén el tono original
-    - NO traduzcas nombres de personajes, lugares o técnicas especiales
-    - Preserva términos japoneses como -san, -kun, -chan
-    - Usa alemán natural y comprensible`;
+     const systemPrompt = this.promptService.loadPrompt('traduccir-aleman');
 
       const userMessage = `Traduce esta descripción de anime al alemán:
 
