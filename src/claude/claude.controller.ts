@@ -45,4 +45,18 @@ export class GeminiController {
     }
     return await this.GeminiS.generarSinopsisCorta(body.animeData);
   }
+
+  @Post('comparar')
+  async compareAnimes(@Body() body: { 
+    animeList: any[];
+    criterios?: string[];
+  }) {
+    if (!body.animeList || !Array.isArray(body.animeList) || body.animeList.length < 2) {
+      throw new Error('Se requiere una lista de al menos 2 animes para comparar');
+    }
+    if (body.animeList.length > 5) {
+      throw new Error('Máximo 5 animes pueden ser comparados a la vez');
+    }
+    return await this.GeminiS.compararAnimes(body.animeList, body.criterios);
+  }
 }

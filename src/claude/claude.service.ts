@@ -168,8 +168,7 @@ export class GeminiS {
 
   async getPersonalizadadRecommendation(userPreferences: string, animeHistory?: string[]): Promise<any> {
     try {
-      const systemPrompt = `Eres un experto en anime que proporciona recomendaciones personalizadas basadas en las preferencias del usuario.
-      Proporciona 5-10 recomendaciones específicas con razones detalladas para cada una.`;
+      const systemPrompt = this.promptService.loadPrompt('recomendaciones');
 
       let userMessage = `Basándote en estas preferencias: "${userPreferences}"`;
 
@@ -201,7 +200,7 @@ export class GeminiS {
 
   async CulturalContexto(animeTitle: string, culturalElement: string): Promise<any> {
     try {
-      const systemPrompt = `Eres un experto en cultura japonesa y anime. Proporciona explicaciones detalladas sobre elementos culturales, referencias históricas, tradiciones, y contexto social en el anime.`;
+       const systemPrompt = this.promptService.loadPrompt('contexto-cultural');
 
       const userMessage = `En el anime "${animeTitle}", explica el contexto cultural de: "${culturalElement}". Incluye trasfondo histórico, significado cultural, y por qué es relevante en la narrativa.`;
 
@@ -274,6 +273,48 @@ async analizarPerso(characterName: string, animeTitle: string, traits?: string[]
       };
     } catch (error) {
       throw new Error('Error generando sinopsis corta');
+    }
+  }
+
+   async compararAnimes(animeList: any[], criterios?: string[]): Promise<any> {
+    try {
+      const systemPrompt = this.promptService.loadPrompt('comparador-anime');
+
+      let userMessage = `Compara estos animes de manera detallada:\n\n`;
+      
+      animeList.forEach((anime, index) => {
+        userMessage += `ANIME ${index + 1}: ${anime.title?.romaji || anime.title?.english || 'Sin título'}\n`;
+        userMessage += `- Géneros: ${anime.genres?.join(', ') || 'No especificados'}\n`;
+        userMessage += `- Año: ${anime.seasonYear || 'No especificado'}\n`;
+        userMessage += `- Episodios: ${anime.episodes || 'No especificado'}\n`;
+        userMessage += `- Estudio: ${anime.studios?.nodes?.[0]?.name || 'No especificado'}\n`;
+        if (anime.description) {
+          userMessage += `- Descripción: ${anime.description.substring(0, 200)}...\n`;
+        }
+        userMessage += `\n`;
+      });
+
+      if (criterios && criterios.length > 0) {
+        userMessage += `\nCriterios específicos a enfatizar en la comparación: ${criterios.join(', ')}`;
+      }
+
+      const response = await this.chatGemini(userMessage, systemPrompt);
+
+      return {
+        comparar: response.response,
+        animeCompared: animeList,
+        criteria: criterios || [],
+        aiProvider: response.provider,
+        model: response.model
+      };
+    } catch (error: any) {
+      console.error('Error comparing animes:', error);
+
+      if (error instanceof NestExceptions.HttpException) {
+        throw error;
+      }
+
+      throw new NestExceptions.InternalServerErrorException('Error al comparar animes');
     }
   }
 }
